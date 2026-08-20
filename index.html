@@ -31,36 +31,43 @@
     </header>
 
     <main class="screen auth-screen" id="screen-auth">
-      <div class="auth-visual"><span class="eyebrow">Clinical Officer Council preparation</span><h1>Prepare with<br><em>purpose.</em></h1><p>A focused question bank for the moments that matter in your COC exam.</p><div class="auth-proof"><span>✓</span> Built around the COC exam structure</div><div class="auth-proof"><span>✓</span> Learn from every answer</div></div>
+      <div class="auth-visual"><span class="eyebrow">Clinical Officer Council preparation</span><h1>Prepare with<br><em>real papers.</em></h1><p>Practice with actual COC past-paper questions and prepare with confidence for the exam that matters.</p><div class="auth-proof"><span>✓</span> Actual COC past-paper questions</div><div class="auth-proof"><span>✓</span> Explanations that help you learn</div></div>
       <div class="auth-card">
-        <div class="auth-brand"><img class="brand-mark brand-mark-lg" src="assets/cocprep-mark.png" alt="COCPrep logo mark"><h2>Welcome to COCPrep</h2><p>Sign in to keep your progress across devices.</p></div>
-        <div class="auth-tabs"><button class="auth-tab is-active" data-authtab="password">Email &amp; password</button><button class="auth-tab" data-authtab="magic">Magic link</button></div>
-        <form class="auth-form" id="passwordForm" data-authpane="password">
-          <label class="field"><span class="field-label">Email address</span><input type="email" name="email" required autocomplete="email" placeholder="you@example.com"></label>
-          <label class="field"><span class="field-label">Password</span><input type="password" name="password" required autocomplete="current-password" placeholder="At least 6 characters" minlength="6"></label>
-          <button type="submit" class="btn btn-primary btn-block" data-action="signin">Sign in</button>
-          <button type="button" class="btn btn-secondary btn-block" data-action="signup">Create account</button>
-        </form>
-        <form class="auth-form" id="magicForm" data-authpane="magic" hidden>
-          <label class="field"><span class="field-label">Email address</span><input type="email" name="email" required autocomplete="email" placeholder="you@example.com"></label>
-          <button type="submit" class="btn btn-primary btn-block">Send magic link</button><p class="field-hint">We'll email you a one-tap sign-in link.</p>
-        </form>
+        <section class="auth-view" id="loginView">
+          <div class="auth-brand"><img class="brand-mark brand-mark-lg" src="assets/cocprep-mark.png" alt="COCPrep logo mark"><h2>Welcome back</h2><p>Sign in to keep your progress across devices.</p></div>
+          <form class="auth-form" id="loginForm">
+            <label class="field"><span class="field-label">Email address</span><input type="email" name="email" required autocomplete="email" placeholder="you@example.com"></label>
+            <label class="field"><span class="field-label">Password</span><input type="password" name="password" required autocomplete="current-password" placeholder="Your password" minlength="6"></label>
+            <button type="submit" class="btn btn-primary btn-block" data-action="signin">Sign in</button>
+          </form>
+          <p class="auth-switch">Don't have an account? <button type="button" class="text-button" data-auth-view="signup">Create account</button></p>
+        </section>
+        <section class="auth-view" id="signupView" hidden>
+          <div class="auth-brand"><img class="brand-mark brand-mark-lg" src="assets/cocprep-mark.png" alt="COCPrep logo mark"><h2>Create your account</h2><p>Start building consistent exam-day confidence.</p></div>
+          <form class="auth-form" id="signupForm">
+            <label class="field"><span class="field-label">Email address</span><input type="email" name="email" required autocomplete="email" placeholder="you@example.com"></label>
+            <label class="field"><span class="field-label">Create a password</span><input type="password" name="password" required autocomplete="new-password" placeholder="At least 6 characters" minlength="6"></label>
+            <button type="submit" class="btn btn-primary btn-block" data-action="signup">Create account</button>
+          </form>
+          <p class="auth-switch">Already have an account? <button type="button" class="text-button" data-auth-view="login">Sign in</button></p>
+        </section>
         <p class="auth-status" id="authStatus" role="status" aria-live="polite"></p>
       </div>
+      <footer class="site-footer"><span>© 2026 COCPrep</span><nav aria-label="Legal"><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms &amp; Conditions</a></nav></footer>
     </main>
 
     <main class="screen" id="screen-dashboard" hidden>
       <div class="page dashboard-page">
-        <section class="welcome-row"><div><span class="eyebrow">Thursday, 20 August</span><h1>Good to see you, <span id="welcomeName">candidate</span>.</h1><p>Small, consistent sessions turn into exam-day confidence.</p></div><button class="btn btn-primary" data-start="mcq"><span>Start a session</span> <b>→</b></button></section>
+        <section class="welcome-row"><div><span class="eyebrow">Thursday, 20 August</span><h1>Good to see you, <span id="welcomeName">candidate</span>.</h1><p>Build confidence with real COC past-paper questions, one session at a time.</p></div><button class="btn btn-primary" data-start="mcq"><span>Start a session</span> <b>→</b></button></section>
         <section class="overview-grid">
           <div class="overview-card overview-main"><div class="card-kicker">Your preparation</div><div class="overview-value" id="overallAccuracy">0%</div><p>Average accuracy</p><div class="line-progress"><span id="overallProgressBar"></span></div><div class="overview-meta"><span><strong id="overviewAnswered">0</strong> questions answered</span><span><strong id="overviewSessions">0</strong> sessions</span></div></div>
           <div class="overview-card"><span class="metric-icon teal">↗</span><div class="metric-value" id="streakValue">0 days</div><p>Current streak</p><span class="muted">Keep showing up</span></div>
           <div class="overview-card"><span class="metric-icon amber">◎</span><div class="metric-value">20</div><p>Free questions</p><span class="muted">Then unlock the full bank</span></div>
         </section>
-        <div class="section-heading"><div><h2>Choose your section</h2><p>Practice in the format you will meet in the COC exam.</p></div><span class="status-pill"><i></i> Exam-ready content</span></div>
+        <div class="section-heading"><div><h2>Practice real COC past papers</h2><p>Work through authentic past-paper questions in the formats used by the COC exam.</p></div><span class="status-pill"><i></i> COC past papers</span></div>
         <section class="section-grid">
-          <article class="exam-card mcq-card"><div class="exam-card-top"><span class="section-tag">SECTION A</span><span class="round-icon">A</span></div><h3>Multiple Choice Questions</h3><p>Build clinical judgment with four-option questions across core units.</p><div class="exam-details"><span><b>MCQ</b> format</span><span><b id="mcqAttempted">0</b> attempted</span><span><b id="mcqAccuracy">—</b> average</span></div><div class="card-progress"><span id="mcqProgress"></span></div><button class="btn btn-primary btn-block" data-start="mcq">Start MCQ practice <b>→</b></button></article>
-          <article class="exam-card tf-card"><div class="exam-card-top"><span class="section-tag">SECTION B</span><span class="round-icon">✓</span></div><h3>True / False</h3><p>Test your knowledge quickly with focused clinical statements.</p><div class="exam-details"><span><b>TRUE / FALSE</b> format</span><span><b id="tfAttempted">0</b> attempted</span><span><b id="tfAccuracy">—</b> average</span></div><div class="card-progress"><span id="tfProgress"></span></div><button class="btn btn-dark btn-block" data-start="truefalse">Start True / False <b>→</b></button></article>
+          <article class="exam-card mcq-card"><div class="exam-card-top"><span class="section-tag">SECTION A</span><span class="round-icon">A</span></div><h3>Multiple Choice Questions</h3><p>Work through actual COC past-paper MCQs across core clinical units.</p><div class="exam-details"><span><b>MCQ</b> format</span><span><b id="mcqAttempted">0</b> attempted</span><span><b id="mcqAccuracy">—</b> average</span></div><div class="card-progress"><span id="mcqProgress"></span></div><button class="btn btn-primary btn-block" data-start="mcq">Start MCQ practice <b>→</b></button></article>
+          <article class="exam-card tf-card"><div class="exam-card-top"><span class="section-tag">SECTION B</span><span class="round-icon">✓</span></div><h3>True / False</h3><p>Practice real COC past-paper statements and learn from every answer.</p><div class="exam-details"><span><b>TRUE / FALSE</b> format</span><span><b id="tfAttempted">0</b> attempted</span><span><b id="tfAccuracy">—</b> average</span></div><div class="card-progress"><span id="tfProgress"></span></div><button class="btn btn-dark btn-block" data-start="truefalse">Start True / False <b>→</b></button></article>
         </section>
         <section class="recent-panel"><div class="section-heading"><div><h2>Recent practice</h2><p>Your latest attempts at a glance.</p></div><button class="text-button" data-nav="results">View all →</button></div><div id="recentSessions" class="recent-list"><div class="empty-inline"><span>◷</span><div><strong>No sessions yet</strong><p>Your answered questions will appear here.</p></div></div></div></section>
       </div>
