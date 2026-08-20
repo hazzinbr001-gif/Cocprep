@@ -9,6 +9,10 @@ const screens = {
 const topbar = document.getElementById("topbar");
 const userEmailEl = document.getElementById("userEmail");
 
+// Populate the M-Pesa Send Money number shown on the paywall
+const mpesaNumberEl = document.getElementById("paywallMpesaNumber");
+if (mpesaNumberEl) mpesaNumberEl.textContent = MPESA_SEND_NUMBER;
+
 function showScreen(name) {
   Object.entries(screens).forEach(([key, node]) => {
     node.hidden = key !== name;

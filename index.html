@@ -143,8 +143,26 @@
           <span class="paywall-eyebrow">Free set complete</span>
           <h2>You've cleared your 20 free questions.</h2>
           <p>Unlock the full bank — every unit, every condition, plus most-tested questions ranked by how often they trip candidates up.</p>
-          <button class="btn btn-primary btn-lg" id="upgradeBtn">Unlock full access</button>
           <p class="paywall-note" id="paywallNote"></p>
+
+          <!-- Pending: user already submitted a code, waiting on admin approval -->
+          <div class="paywall-pending" id="paywallPending" hidden>
+            <span class="pending-badge">Payment submitted</span>
+            <p>We're checking your M-Pesa payment. This usually takes a few hours — check back soon, this page unlocks automatically once approved.</p>
+            <button class="btn btn-secondary" id="refreshEntitlementBtn">Check again</button>
+          </div>
+
+          <!-- Payment form: not yet submitted -->
+          <div class="paywall-payment-form" id="paywallPaymentForm">
+            <ol class="payment-steps">
+              <li>Open M-Pesa on your phone → <strong>Send Money</strong></li>
+              <li>Send <strong>KSH 100</strong> to <strong id="paywallMpesaNumber">0700 000 000</strong></li>
+              <li>Paste the confirmation code M-Pesa sends you below</li>
+            </ol>
+            <input type="text" id="mpesaCodeInput" placeholder="e.g. QAB1XYZ234" autocapitalize="characters" />
+            <button class="btn btn-primary btn-lg" id="submitPaymentBtn">Submit payment code</button>
+            <p class="payment-status" id="paymentStatus"></p>
+          </div>
         </div>
 
         <!-- empty pool -->

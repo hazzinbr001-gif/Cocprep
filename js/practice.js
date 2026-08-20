@@ -30,8 +30,13 @@ const el = {
 
   errorBody: document.getElementById("errorBody"),
   retryBtn: document.getElementById("retryBtn"),
-  upgradeBtn: document.getElementById("upgradeBtn"),
   paywallNote: document.getElementById("paywallNote"),
+  paywallPending: document.getElementById("paywallPending"),
+  paywallPaymentForm: document.getElementById("paywallPaymentForm"),
+  mpesaCodeInput: document.getElementById("mpesaCodeInput"),
+  submitPaymentBtn: document.getElementById("submitPaymentBtn"),
+  paymentStatus: document.getElementById("paymentStatus"),
+  refreshEntitlementBtn: document.getElementById("refreshEntitlementBtn"),
 };
 
 let currentQuestion = null;
@@ -122,6 +127,7 @@ async function loadNextQuestion() {
           ? "Looks like the free question set ran out early — full access unlocks the rest."
           : "";
       showState("paywallCard");
+      await refreshPaywallState();
       return;
     }
 
@@ -184,11 +190,65 @@ el.submitAnswerBtn.addEventListener("click", async () => {
 el.nextQuestionBtn.addEventListener("click", loadNextQuestion);
 el.retryBtn.addEventListener("click", loadNextQuestion);
 
-el.upgradeBtn.addEventListener("click", () => {
-  if (typeof UPGRADE_URL === "string" && UPGRADE_URL) {
-    window.location.href = UPGRADE_URL;
+/**
+ * Checks current entitlement/pending status and shows the right paywall
+ * sub-state: payment form (nothing submitted yet), pending (submitted,
+ * awaiting admin approval), or re-fetches a question if now entitled.
+ */
+async function refreshPaywallState() {
+  const entitled = await apiCheckEntitlement();
+  if (entitled) {
+    // Unlocked — go straight back into the quiz
+    loadNextQuestion();
+    return;
+  }
+
+  const pending = await apiGetPendingPayment();
+  if (pending) {
+    el.paywallPending.hidden = false;
+    el.paywallPaymentForm.hidden = true;
   } else {
-    alert("Checkout isn't wired up yet — add your payment link in js/config.js (UPGRADE_URL).");
+    el.paywallPending.hidden = true;
+    el.paywallPaymentForm.hidden = false;
+  }
+}
+
+el.submitPaymentBtn.addEventListener("click", async () => {
+  const code = el.mpesaCodeInput.value.trim();
+  if (!code) {
+    el.paymentStatus.textContent = "Enter the M-Pesa confirmation code first.";
+    el.paymentStatus.className = "payment-status is-error";
+    return;
+  }
+
+  el.submitPaymentBtn.disabled = true;
+  el.submitPaymentBtn.textContent = "Submitting…";
+  el.paymentStatus.textContent = "";
+
+  try {
+    const result = await apiSubmitPaymentCode(code);
+    el.paymentStatus.textContent = result.message || "Submitted — we'll verify it shortly.";
+    el.paymentStatus.className = "payment-status is-success";
+    el.mpesaCodeInput.value = "";
+    el.paywallPending.hidden = false;
+    el.paywallPaymentForm.hidden = true;
+  } catch (err) {
+    el.paymentStatus.textContent = err.message || "Couldn't submit that code — try again.";
+    el.paymentStatus.className = "payment-status is-error";
+  } finally {
+    el.submitPaymentBtn.disabled = false;
+    el.submitPaymentBtn.textContent = "Submit payment code";
+  }
+});
+
+el.refreshEntitlementBtn.addEventListener("click", async () => {
+  el.refreshEntitlementBtn.disabled = true;
+  el.refreshEntitlementBtn.textContent = "Checking…";
+  try {
+    await refreshPaywallState();
+  } finally {
+    el.refreshEntitlementBtn.disabled = false;
+    el.refreshEntitlementBtn.textContent = "Check again";
   }
 });
 
@@ -213,34 +273,34 @@ el.clearFiltersBtn.addEventListener("click", () => {
  * Populates the unit/condition filter dropdowns and shows the filter
  * block. Called once we know the user has full access (paid) — the
  * backend only honors these filters for paid users anyway.
+ *
+ * NOTE: the `questions` table has no RLS select policy by design (it's
+ * only ever read through the get-next-question edge function, which is
+ * what makes the paywall actually enforceable — see architecture doc).
+ * So this list is maintained here manually rather than queried live.
+ * Update UNITS/CONDITIONS below as new question categories are added.
  */
+const UNITS = [
+  "Medicine", "Paediatrics", "Surgery", "Reproductive Health",
+  "Community Health", "Health Systems Management",
+];
+const CONDITIONS = [
+  "Hypertension", "Diabetes Mellitus", "Pneumonia", "Acute Myocardial Infarction",
+  "Nephrotic Syndrome", "Meningitis", "Postpartum Hemorrhage", "Malaria",
+];
+
 async function initFiltersFromQuestions() {
-  try {
-    const { data, error } = await supabaseClient
-      .from("questions")
-      .select("unit, condition")
-      .limit(500);
-    if (error || !data) return;
-
-    const units = [...new Set(data.map((r) => r.unit).filter(Boolean))].sort();
-    const conditions = [...new Set(data.map((r) => r.condition).filter(Boolean))].sort();
-
-    units.forEach((u) => {
-      const opt = document.createElement("option");
-      opt.value = u; opt.textContent = u;
-      el.filterUnit.appendChild(opt);
-    });
-    conditions.forEach((c) => {
-      const opt = document.createElement("option");
-      opt.value = c; opt.textContent = c;
-      el.filterCondition.appendChild(opt);
-    });
-
-    el.filterBlock.hidden = false;
-  } catch {
-    // Filters are a nice-to-have; fail silently if the questions table
-    // isn't directly readable for this user (RLS may restrict it).
-  }
+  UNITS.forEach((u) => {
+    const opt = document.createElement("option");
+    opt.value = u; opt.textContent = u;
+    el.filterUnit.appendChild(opt);
+  });
+  CONDITIONS.forEach((c) => {
+    const opt = document.createElement("option");
+    opt.value = c; opt.textContent = c;
+    el.filterCondition.appendChild(opt);
+  });
+  el.filterBlock.hidden = false;
 }
 
 function resetPracticeState() {

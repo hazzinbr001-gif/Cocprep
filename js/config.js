@@ -7,6 +7,7 @@
 const SUPABASE_URL = "https://jdeivgomafdxqgscnbat.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpkZWl2Z29tYWZkeHFnc2NuYmF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxMjM0MDEsImV4cCI6MjEwMjY5OTQwMX0.P-aGwbrvZ4xPd4rWcLdCTV6--57KBBvBvxGhFKIQL1E";
 
-// Where to send free users who hit the paywall.
-// Replace with your real Stripe/Paystack checkout link when ready.
-const UPGRADE_URL = null; // e.g. "https://buy.stripe.com/xxxxx"
+// Where users send M-Pesa payment manually (Send Money), since Daraja/till
+// isn't set up yet. Update this to your real number.
+const MPESA_SEND_NUMBER = "0112973866";
+const PAYMENT_AMOUNT_KSH = 100;

@@ -46,7 +46,7 @@ async function apiSubmitAnswer({ questionId, selectedChoice }) {
       "Authorization": `Bearer ${token}`,
       "apikey": SUPABASE_ANON_KEY,
     },
-    body: JSON.stringify({ question_id: questionId, selected_choice: selectedChoice }),
+    body: JSON.stringify({ question_id: questionId, selected_answer: selectedChoice }),
   });
 
   const body = await res.json().catch(() => ({}));
@@ -63,10 +63,72 @@ async function apiSubmitAnswer({ questionId, selectedChoice }) {
 async function apiGetAttemptHistory() {
   const { data, error } = await supabaseClient
     .from("question_attempts")
-    .select("id, question_id, selected_choice, is_correct, created_at, questions(question_text)")
-    .order("created_at", { ascending: false })
+    .select("id, question_id, selected_answer, correct, answered_at, questions(question_text)")
+    .order("answered_at", { ascending: false })
     .limit(100);
 
   if (error) throw new Error(error.message);
   return data ?? [];
+}
+
+/**
+ * Calls submit-payment-code — user has already sent M-Pesa money manually
+ * and is submitting their confirmation code. This queues a pending payment;
+ * it does NOT unlock access on its own (an admin must approve it).
+ */
+async function apiSubmitPaymentCode(mpesaCode) {
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  if (!token) throw new Error("Not signed in.");
+
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/submit-payment-code`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+      "apikey": SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ mpesa_code: mpesaCode }),
+  });
+
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(body.error || `Request failed (${res.status})`);
+  }
+  return body;
+}
+
+/**
+ * Checks whether the current user has an active full_access entitlement.
+ * Used to show "pending approval" vs "unlocked" state on the paywall.
+ */
+async function apiCheckEntitlement() {
+  const { data, error } = await supabaseClient
+    .from("entitlements")
+    .select("id, product, expires_at")
+    .eq("product", "full_access")
+    .limit(1)
+    .maybeSingle();
+
+  if (error) return false; // fail closed — treat as not entitled
+  if (!data) return false;
+  if (data.expires_at && new Date(data.expires_at) < new Date()) return false;
+  return true;
+}
+
+/**
+ * Checks whether the current user has a pending (unreviewed) payment.
+ * Used to show "we're checking your payment" state.
+ */
+async function apiGetPendingPayment() {
+  const { data, error } = await supabaseClient
+    .from("payments")
+    .select("id, status, created_at")
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) return null;
+  return data;
 }

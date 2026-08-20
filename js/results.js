@@ -29,7 +29,7 @@ async function loadResults() {
     const attempts = await apiGetAttemptHistory();
 
     const answered = attempts.length;
-    const correct = attempts.filter((a) => a.is_correct).length;
+    const correct = attempts.filter((a) => a.correct).length;
     const accuracy = answered > 0 ? Math.round((correct / answered) * 100) : 0;
 
     resultsEl.statAnswered.textContent = answered;
@@ -46,9 +46,9 @@ async function loadResults() {
       item.className = "history-item";
       const questionText = a.questions?.question_text || "Question";
       item.innerHTML = `
-        <span class="history-dot ${a.is_correct ? "is-correct" : "is-wrong"}"></span>
+        <span class="history-dot ${a.correct ? "is-correct" : "is-wrong"}"></span>
         <span class="history-text"></span>
-        <span class="history-time">${formatRelativeTime(a.created_at)}</span>
+        <span class="history-time">${formatRelativeTime(a.answered_at)}</span>
       `;
       item.querySelector(".history-text").textContent = questionText;
       resultsEl.historyList.appendChild(item);
