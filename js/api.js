@@ -8,7 +8,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
  * Calls the get-next-question edge function.
  * Requires an active session — throws if none.
  */
-async function apiGetNextQuestion({ unit, condition, most_tested, section } = {}) {
+async function apiGetNextQuestion({ unit, topic, condition, most_tested, section } = {}) {
   const { data: sessionData } = await supabaseClient.auth.getSession();
   const token = sessionData?.session?.access_token;
   if (!token) throw new Error("Not signed in.");
@@ -20,7 +20,7 @@ async function apiGetNextQuestion({ unit, condition, most_tested, section } = {}
       "Authorization": `Bearer ${token}`,
       "apikey": SUPABASE_ANON_KEY,
     },
-    body: JSON.stringify({ unit, condition, most_tested, section }),
+    body: JSON.stringify({ unit, topic, condition, most_tested, section }),
   });
 
   const body = await res.json().catch(() => ({}));
