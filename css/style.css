@@ -69,3 +69,14 @@ html,body{max-width:100%;overflow-x:hidden}.dashboard-page:before{pointer-events
   .premium-badge{font-size:9px;padding:4px 7px}
   .premium-note{margin-top:12px}
 }
+
+
+/* Functional mobile navigation */
+@media(max-width:800px){
+  .topbar{position:relative;z-index:10}
+  .topbar.menu-open .topnav{display:flex;position:absolute;top:100%;left:0;right:0;z-index:20;flex-direction:column;gap:4px;padding:10px 14px 14px;background:var(--ink);border-top:1px solid rgba(255,255,255,.12);box-shadow:0 14px 24px rgba(13,43,42,.22)}
+  .topbar.menu-open .nav-link{width:100%;padding:12px 14px;text-align:left}
+  .topbar.menu-open .nav-link.is-active{background:rgba(255,255,255,.1);color:var(--amber)}
+  .mobile-menu{width:38px;height:36px;padding:0;border:1px solid rgba(255,255,255,.24);border-radius:8px;background:rgba(255,255,255,.08);color:white;font-size:20px;line-height:1}
+  .mobile-menu:hover{background:rgba(255,255,255,.16)}
+}
