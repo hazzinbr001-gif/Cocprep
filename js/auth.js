@@ -27,7 +27,16 @@ const passwordForm = document.getElementById("passwordForm");
 let pendingAction = "signin";
 
 passwordForm.querySelectorAll("[data-action]").forEach((btn) => {
-  btn.addEventListener("click", () => { pendingAction = btn.dataset.action; });
+  btn.addEventListener("click", (e) => {
+    pendingAction = btn.dataset.action;
+    // "Create account" is type=button (so Enter in the fields defaults to
+    // "Sign in"), so it must trigger the form's submit handler manually —
+    // otherwise clicking it only sets pendingAction and does nothing else.
+    if (btn.type === "button") {
+      e.preventDefault();
+      passwordForm.requestSubmit();
+    }
+  });
 });
 
 passwordForm.addEventListener("submit", async (e) => {
