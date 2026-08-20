@@ -79,13 +79,26 @@ function renderQuestion(q) {
   el.questionText.textContent = q.question_text;
 
   el.choicesList.innerHTML = "";
-  const choices = Array.isArray(q.choices) ? q.choices : Object.entries(q.choices || {});
 
-  choices.forEach((choiceRaw, index) => {
-    // Support both ["text1","text2"] and {A:"text1", B:"text2"} shapes
-    const key = Array.isArray(q.choices) ? letterFor(index) : choiceRaw[0];
-    const text = Array.isArray(q.choices) ? choiceRaw : choiceRaw[1];
+  // Actual schema shape (from questions.choices jsonb column) is an array
+  // of {key, text} objects, e.g. [{"key":"A","text":"..."}, ...].
+  // Still tolerate a couple of alternate shapes defensively, in case a
+  // future import script or manual edit stores it differently.
+  const rawChoices = q.choices || [];
+  let normalized = [];
 
+  if (Array.isArray(rawChoices) && rawChoices.length && typeof rawChoices[0] === "object" && rawChoices[0] !== null && "key" in rawChoices[0]) {
+    // [{key:"A", text:"..."}]  <- the real shape
+    normalized = rawChoices.map((c) => ({ key: c.key, text: c.text }));
+  } else if (Array.isArray(rawChoices)) {
+    // ["text1","text2"]  <- plain array fallback
+    normalized = rawChoices.map((text, index) => ({ key: letterFor(index), text }));
+  } else {
+    // {A:"text1", B:"text2"}  <- object map fallback
+    normalized = Object.entries(rawChoices).map(([key, text]) => ({ key, text }));
+  }
+
+  normalized.forEach(({ key, text }) => {
     const div = document.createElement("div");
     div.className = "choice";
     div.dataset.key = key;

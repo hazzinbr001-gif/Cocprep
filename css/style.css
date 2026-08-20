@@ -32,6 +32,14 @@
 
 * { box-sizing: border-box; }
 
+/* Guarantee the [hidden] attribute always wins over any component's
+   own display rule (flex/grid/block). Without this, showState()'s
+   el.hidden = true/false toggling can be silently overridden by a
+   more specific .card/.state-card display rule elsewhere, causing
+   every state (auth, question, loading, paywall, empty, error) to
+   render at once instead of one at a time. */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   padding: 0;
