@@ -22,44 +22,62 @@ document.querySelectorAll(".auth-tab").forEach((tab) => {
   });
 });
 
-// --- Email + password: sign in / sign up ---
+// --- Email + password: sign in and sign up are two separate, independent flows ---
 const passwordForm = document.getElementById("passwordForm");
-let pendingAction = "signin";
+const signInBtn = passwordForm.querySelector('[data-action="signin"]');
+const signUpBtn = passwordForm.querySelector('[data-action="signup"]');
 
-passwordForm.querySelectorAll("[data-action]").forEach((btn) => {
-  btn.addEventListener("click", (e) => {
-    pendingAction = btn.dataset.action;
-    // "Create account" is type=button (so Enter in the fields defaults to
-    // "Sign in"), so it must trigger the form's submit handler manually —
-    // otherwise clicking it only sets pendingAction and does nothing else.
-    if (btn.type === "button") {
-      e.preventDefault();
-      passwordForm.requestSubmit();
-    }
-  });
-});
+function getEmailPassword() {
+  return {
+    email: passwordForm.email.value.trim(),
+    password: passwordForm.password.value,
+  };
+}
 
+// Enter key in the fields defaults to sign in (the form's type=submit button).
 passwordForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const email = passwordForm.email.value.trim();
-  const password = passwordForm.password.value;
+  await handleSignIn();
+});
 
-  setAuthStatus(pendingAction === "signup" ? "Creating your account…" : "Signing in…");
+// "Create account" is a separate type=button, wired to its own handler —
+// it never touches the sign-in flow or the form's submit event.
+signUpBtn.addEventListener("click", async (e) => {
+  e.preventDefault();
+  await handleSignUp();
+});
+
+async function handleSignIn() {
+  const { email, password } = getEmailPassword();
+  setAuthStatus("Signing in…");
+  signInBtn.disabled = true;
 
   try {
-    if (pendingAction === "signup") {
-      const { error } = await supabaseClient.auth.signUp({ email, password });
-      if (error) throw error;
-      setAuthStatus("Account created. Check your email to confirm, then sign in.", "success");
-    } else {
-      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      // onAuthStateChange in app.js handles the screen switch
-    }
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    // onAuthStateChange in app.js handles the screen switch
   } catch (err) {
     setAuthStatus(err.message || "Something went wrong.", "error");
+  } finally {
+    signInBtn.disabled = false;
   }
-});
+}
+
+async function handleSignUp() {
+  const { email, password } = getEmailPassword();
+  setAuthStatus("Creating your account…");
+  signUpBtn.disabled = true;
+
+  try {
+    const { error } = await supabaseClient.auth.signUp({ email, password });
+    if (error) throw error;
+    setAuthStatus("Account created. Check your email to confirm, then sign in.", "success");
+  } catch (err) {
+    setAuthStatus(err.message || "Something went wrong.", "error");
+  } finally {
+    signUpBtn.disabled = false;
+  }
+}
 
 // --- Magic link ---
 const magicForm = document.getElementById("magicForm");
