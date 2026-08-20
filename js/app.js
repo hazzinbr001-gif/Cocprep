@@ -1,70 +1,16 @@
-// COCPrep — App shell: screen routing + auth state
-
-const screens = {
-  auth: document.getElementById("screen-auth"),
-  practice: document.getElementById("screen-practice"),
-  results: document.getElementById("screen-results"),
-};
-
-const topbar = document.getElementById("topbar");
-const userEmailEl = document.getElementById("userEmail");
-
-// Populate the M-Pesa Send Money number shown on the paywall
-const mpesaNumberEl = document.getElementById("paywallMpesaNumber");
-if (mpesaNumberEl) mpesaNumberEl.textContent = MPESA_SEND_NUMBER;
-
-function showScreen(name) {
-  Object.entries(screens).forEach(([key, node]) => {
-    node.hidden = key !== name;
-  });
-  document.querySelectorAll(".nav-link").forEach((link) => {
-    link.classList.toggle("is-active", link.dataset.nav === name);
-  });
-
-  if (name === "practice") {
-    resetPracticeState();
-    loadNextQuestion();
-    initFiltersFromQuestions();
-  }
-  if (name === "results") {
-    loadResults();
-  }
-}
-
-document.querySelectorAll("[data-nav]").forEach((link) => {
-  link.addEventListener("click", (e) => {
-    e.preventDefault();
-    showScreen(link.dataset.nav);
-  });
-});
-
-function enterSignedInState(session) {
-  topbar.hidden = false;
-  userEmailEl.textContent = session.user.email || "";
-  showScreen("practice");
-}
-
-function enterSignedOutState() {
-  topbar.hidden = true;
-  showScreen("auth");
-}
-
-// React to auth changes: initial load, sign in, sign out, token refresh,
-// and magic-link redirect callbacks all flow through this one listener.
-supabaseClient.auth.onAuthStateChange((_event, session) => {
-  if (session) {
-    enterSignedInState(session);
-  } else {
-    enterSignedOutState();
-  }
-});
-
-// Also check immediately on load in case a session already exists
-// (onAuthStateChange fires async, this avoids a flash of the auth screen).
-supabaseClient.auth.getSession().then(({ data }) => {
-  if (data?.session) {
-    enterSignedInState(data.session);
-  } else {
-    enterSignedOutState();
-  }
-});
+const screens={auth:document.getElementById("screen-auth"),dashboard:document.getElementById("screen-dashboard"),practice:document.getElementById("screen-practice"),results:document.getElementById("screen-results")},topbar=document.getElementById("topbar"),userEmailEl=document.getElementById("userEmail");
+const celebrationImages=[
+  "https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1400&q=82",
+  "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&w=1400&q=82",
+  "https://images.unsplash.com/photo-1529390079861-591de354faf5?auto=format&fit=crop&w=1400&q=82"
+];
+const imageIndex=Math.floor(Date.now()/86400000)%celebrationImages.length;
+const imageStyle=document.createElement("style");
+imageStyle.textContent=`.auth-screen{background-image:linear-gradient(90deg,rgba(13,43,42,.98) 0%,rgba(13,43,42,.94) 48%,rgba(13,43,42,.72) 100%),url("${celebrationImages[imageIndex]}");background-size:cover;background-position:center}.dashboard-page{position:relative}.dashboard-page:before{content:"";position:absolute;right:0;top:28px;width:220px;height:145px;border-radius:22px;background:linear-gradient(135deg,rgba(13,43,42,.12),rgba(13,43,42,.64)),url("${celebrationImages[(imageIndex+1)%celebrationImages.length]}") center/cover;opacity:.9;z-index:0}.dashboard-page>*{position:relative;z-index:1}.practice-page{position:relative}`;
+document.head.appendChild(imageStyle);
+function showScreen(name){Object.entries(screens).forEach(([key,node])=>node.hidden=key!==name);document.querySelectorAll("[data-nav]").forEach(n=>n.classList.toggle("is-active",n.dataset.nav===name));if(name==="dashboard"){loadDashboard();loadFlaggedQuestions()}if(name==="results")loadResults()}
+function loadDashboard(){apiGetAttemptHistory().then(a=>{const correct=a.filter(x=>x.correct).length,accuracy=a.length?Math.round(correct/a.length*100):0;document.getElementById("overallAccuracy").textContent=`${accuracy}%`;document.getElementById("overallProgressBar").style.width=`${accuracy}%`;document.getElementById("overviewAnswered").textContent=a.length;document.getElementById("overviewSessions").textContent=Math.ceil(a.length/10);document.getElementById("mcqAttempted").textContent=a.length;document.getElementById("mcqAccuracy").textContent=a.length?`${accuracy}%`:"—";document.getElementById("mcqProgress").style.width=`${Math.min(100,a.length/20*100)}%`;document.getElementById("tfAttempted").textContent="0";document.getElementById("tfAccuracy").textContent="—";document.getElementById("tfProgress").style.width="0%";const recent=document.getElementById("recentSessions");if(a.length)recent.innerHTML=a.slice(0,3).map(x=>`<div class="history-item"><span class="history-dot ${x.correct?"is-correct":""}"></span><span class="history-text">${x.correct?"Correct answer":"Needs review"}</span><span class="history-time">${new Date(x.answered_at).toLocaleDateString()}</span></div>`).join("")}).catch(()=>{})}
+function loadFlaggedQuestions(){apiGetQuestionFlags().then(({flags})=>{const target=document.getElementById("flaggedQuestions");if(!target)return;if(!flags?.length){target.innerHTML='<div class="empty-inline"><span>⚑</span><div><strong>No flagged questions</strong><p>Flag a question during practice to revisit it here.</p></div></div>';return}target.innerHTML=flags.slice(0,4).map(f=>`<div class="history-item"><span class="history-dot" style="background:#f4c95d"></span><span class="history-text">${f.questions?.question_text||"Flagged question"}</span><span class="history-time">${f.questions?.section==="truefalse"?"Section B":"Section A"}</span></div>`).join("")}).catch(()=>{})}
+if(!document.getElementById("flaggedQuestions")){const panel=document.createElement("section");panel.className="recent-panel";panel.innerHTML='<div class="section-heading"><div><h2>Saved for review</h2><p>Your personal flagged questions.</p></div></div><div id="flaggedQuestions" class="recent-list"><div class="empty-inline"><span>⚑</span><div><strong>No flagged questions</strong><p>Flag a question during practice to revisit it here.</p></div></div></div>';document.querySelector(".dashboard-page .recent-panel")?.before(panel)}
+document.querySelectorAll("[data-nav]").forEach(n=>n.onclick=e=>{e.preventDefault();showScreen(n.dataset.nav)});document.querySelectorAll("[data-start]").forEach(b=>b.onclick=()=>{showScreen("practice");startExam(b.dataset.start==="truefalse"?"truefalse":"mcq")});
+function enterSignedInState(session){topbar.hidden=false;userEmailEl.textContent=session.user.email||"";document.getElementById("welcomeName").textContent=(session.user.email||"candidate").split("@")[0];showScreen("dashboard")}function enterSignedOutState(){topbar.hidden=true;showScreen("auth")}supabaseClient.auth.onAuthStateChange((_event,session)=>session?enterSignedInState(session):enterSignedOutState());supabaseClient.auth.getSession().then(({data})=>data?.session?enterSignedInState(data.session):enterSignedOutState());

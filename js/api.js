@@ -8,7 +8,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
  * Calls the get-next-question edge function.
  * Requires an active session — throws if none.
  */
-async function apiGetNextQuestion({ unit, condition, most_tested } = {}) {
+async function apiGetNextQuestion({ unit, condition, most_tested, section } = {}) {
   const { data: sessionData } = await supabaseClient.auth.getSession();
   const token = sessionData?.session?.access_token;
   if (!token) throw new Error("Not signed in.");
@@ -20,7 +20,7 @@ async function apiGetNextQuestion({ unit, condition, most_tested } = {}) {
       "Authorization": `Bearer ${token}`,
       "apikey": SUPABASE_ANON_KEY,
     },
-    body: JSON.stringify({ unit, condition, most_tested }),
+    body: JSON.stringify({ unit, condition, most_tested, section }),
   });
 
   const body = await res.json().catch(() => ({}));
@@ -34,7 +34,7 @@ async function apiGetNextQuestion({ unit, condition, most_tested } = {}) {
  * Calls the submit-answer edge function.
  * Expected to return { correct: boolean, correct_answer, explanation }.
  */
-async function apiSubmitAnswer({ questionId, selectedChoice }) {
+async function apiSubmitAnswer({ questionId, selectedChoice, section }) {
   const { data: sessionData } = await supabaseClient.auth.getSession();
   const token = sessionData?.session?.access_token;
   if (!token) throw new Error("Not signed in.");
@@ -46,7 +46,7 @@ async function apiSubmitAnswer({ questionId, selectedChoice }) {
       "Authorization": `Bearer ${token}`,
       "apikey": SUPABASE_ANON_KEY,
     },
-    body: JSON.stringify({ question_id: questionId, selected_answer: selectedChoice }),
+    body: JSON.stringify({ question_id: questionId, selected_answer: selectedChoice, section }),
   });
 
   const body = await res.json().catch(() => ({}));
@@ -131,4 +131,29 @@ async function apiGetPendingPayment() {
 
   if (error) return null;
   return data;
+}
+
+async function apiCallFunction(name, payload) {
+  const { data } = await supabaseClient.auth.getSession();
+  const token = data?.session?.access_token;
+  if (!token) throw new Error("Not signed in.");
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
+    method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}`, "apikey": SUPABASE_ANON_KEY },
+    body: JSON.stringify(payload),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(body.error || `Request failed (${res.status})`), { code: res.status, body });
+  return body;
+}
+
+async function apiToggleQuestionFlag(questionId) {
+  return apiCallFunction("toggle-question-flag", { question_id: questionId });
+}
+
+async function apiSubmitQuestionReport(questionId, reason, details) {
+  return apiCallFunction("submit-question-report", { question_id: questionId, reason, details });
+}
+
+async function apiGetQuestionFlags() {
+  return apiCallFunction("get-question-flags", {});
 }
