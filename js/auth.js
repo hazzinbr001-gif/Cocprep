@@ -1,6 +1,10 @@
-// COCPrep — Auth screen behavior
+// COCPrep — authentication behavior
 
 const authStatusEl = document.getElementById("authStatus");
+const loginView = document.getElementById("loginView");
+const signupView = document.getElementById("signupView");
+const loginForm = document.getElementById("loginForm");
+const signupForm = document.getElementById("signupForm");
 
 function setAuthStatus(message, kind) {
   authStatusEl.textContent = message || "";
@@ -8,98 +12,60 @@ function setAuthStatus(message, kind) {
   if (kind) authStatusEl.classList.add(kind === "error" ? "is-error" : "is-success");
 }
 
-// --- Tab switching (password vs magic link) ---
-document.querySelectorAll(".auth-tab").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    document.querySelectorAll(".auth-tab").forEach((t) => t.classList.remove("is-active"));
-    tab.classList.add("is-active");
+function showAuthView(view) {
+  const isSignup = view === "signup";
+  loginView.hidden = isSignup;
+  signupView.hidden = !isSignup;
+  setAuthStatus("");
+}
 
-    const target = tab.dataset.authtab;
-    document.querySelectorAll("[data-authpane]").forEach((pane) => {
-      pane.hidden = pane.dataset.authpane !== target;
-    });
-    setAuthStatus("");
-  });
+document.querySelectorAll("[data-auth-view]").forEach((button) => {
+  button.addEventListener("click", () => showAuthView(button.dataset.authView));
 });
 
-// --- Email + password: sign in and sign up are two separate, independent flows ---
-const passwordForm = document.getElementById("passwordForm");
-const signInBtn = passwordForm.querySelector('[data-action="signin"]');
-const signUpBtn = passwordForm.querySelector('[data-action="signup"]');
-
-function getEmailPassword() {
+function readCredentials(form) {
   return {
-    email: passwordForm.email.value.trim(),
-    password: passwordForm.password.value,
+    email: form.email.value.trim(),
+    password: form.password.value,
   };
 }
 
-// Enter key in the fields defaults to sign in (the form's type=submit button).
-passwordForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  await handleSignIn();
-});
-
-// "Create account" is a separate type=button, wired to its own handler —
-// it never touches the sign-in flow or the form's submit event.
-signUpBtn.addEventListener("click", async (e) => {
-  e.preventDefault();
-  await handleSignUp();
-});
-
-async function handleSignIn() {
-  const { email, password } = getEmailPassword();
+loginForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const { email, password } = readCredentials(loginForm);
+  const submitButton = loginForm.querySelector('[data-action="signin"]');
   setAuthStatus("Signing in…");
-  signInBtn.disabled = true;
+  submitButton.disabled = true;
 
   try {
     const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
     if (error) throw error;
-    // onAuthStateChange in app.js handles the screen switch
-  } catch (err) {
-    setAuthStatus(err.message || "Something went wrong.", "error");
+  } catch (error) {
+    setAuthStatus(error.message || "Unable to sign in. Please check your details.", "error");
   } finally {
-    signInBtn.disabled = false;
+    submitButton.disabled = false;
   }
-}
+});
 
-async function handleSignUp() {
-  const { email, password } = getEmailPassword();
+signupForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const { email, password } = readCredentials(signupForm);
+  const submitButton = signupForm.querySelector('[data-action="signup"]');
   setAuthStatus("Creating your account…");
-  signUpBtn.disabled = true;
+  submitButton.disabled = true;
 
   try {
     const { error } = await supabaseClient.auth.signUp({ email, password });
     if (error) throw error;
+    signupForm.reset();
     setAuthStatus("Account created. Check your email to confirm, then sign in.", "success");
-  } catch (err) {
-    setAuthStatus(err.message || "Something went wrong.", "error");
+  } catch (error) {
+    setAuthStatus(error.message || "Unable to create your account. Please try again.", "error");
   } finally {
-    signUpBtn.disabled = false;
-  }
-}
-
-// --- Magic link ---
-const magicForm = document.getElementById("magicForm");
-
-magicForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const email = magicForm.email.value.trim();
-  setAuthStatus("Sending your link…");
-
-  try {
-    const { error } = await supabaseClient.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.href },
-    });
-    if (error) throw error;
-    setAuthStatus("Check your inbox — tap the link to sign in.", "success");
-  } catch (err) {
-    setAuthStatus(err.message || "Something went wrong.", "error");
+    submitButton.disabled = false;
   }
 });
 
-// --- Sign out ---
 document.getElementById("signOutBtn").addEventListener("click", async () => {
   await supabaseClient.auth.signOut();
 });
