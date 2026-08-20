@@ -107,3 +107,11 @@ html,body{max-width:100%;overflow-x:hidden}.dashboard-page:before{pointer-events
   .paywallPaymentForm button{width:100%}
   .paywallPaymentForm .payment-status{grid-column:auto}
 }
+
+
+/* Topic filter and payment value summary */
+.practice-filters{display:flex;align-items:flex-end;gap:12px;margin:-18px 0 24px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;box-shadow:0 6px 18px #0d2b2a08}
+.practice-filters label{display:block;flex:1;color:var(--ink);font-size:12px;font-weight:800}.practice-filters label span{color:var(--muted);font-weight:500}.topic-filter-row{display:flex;gap:8px;margin-top:6px}.topic-filter-row input{width:100%;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:9px;color:var(--ink);background:#fff}.practice-filters p{margin:0;color:var(--muted);font-size:11px;max-width:240px;line-height:1.35}
+.paywall-benefits{display:grid;gap:8px;margin:18px 0 20px;padding:0;list-style:none;color:#d9e7e4;font-size:13px}.paywall-benefits li{position:relative;padding-left:20px;line-height:1.4}.paywall-benefits li:before{content:"✓";position:absolute;left:0;color:var(--amber);font-weight:800}.paywall-benefits strong{color:#fff}
+.paywall-card-premium .paywall-benefits{color:#685315}.paywall-card-premium .paywall-benefits strong{color:#4d3b0b}.paywall-card-premium .paywall-benefits li:before{color:#9a7415}
+@media(max-width:700px){.practice-filters{display:block;margin:-10px 0 22px}.practice-filters p{max-width:none;margin-top:8px}.topic-filter-row{width:100%}.topic-filter-row .btn{flex:none}}
