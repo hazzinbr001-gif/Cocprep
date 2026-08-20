@@ -157,3 +157,12 @@ async function apiSubmitQuestionReport(questionId, reason, details) {
 async function apiGetQuestionFlags() {
   return apiCallFunction("get-question-flags", {});
 }
+
+
+async function apiAdminQuestions(payload = {}) {
+  return apiCallFunction("admin-questions", payload);
+}
+
+async function apiAdminReports(payload = {}) {
+  return apiCallFunction("admin-question-reports", payload);
+}
