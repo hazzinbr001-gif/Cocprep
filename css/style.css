@@ -33,3 +33,39 @@ html,body{max-width:100%;overflow-x:hidden}.dashboard-page:before{pointer-events
   .section-heading{display:block}
   .status-pill{display:inline-block;margin-top:12px}
 }
+
+
+/* Mobile dashboard polish and clear premium section treatment */
+.premium-card{position:relative;border-color:#ead9a5;background:linear-gradient(145deg,#fff 0%,#fffdf5 100%)}
+.premium-card .section-tag{color:#9a7415}
+.premium-badge{display:inline-flex;align-items:center;gap:5px;border:1px solid #ead9a5;background:#fff8df;color:#8a6711;border-radius:999px;padding:5px 9px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.premium-card .round-icon{background:#fff3c4;color:#9a7415}
+.premium-card .btn-dark{background:#8a6711}
+.premium-card .btn-dark:hover{background:#70530b}
+.premium-note{display:flex;align-items:center;gap:7px;margin:14px 0 0;color:#8a6711;font-size:12px;font-weight:700}
+.paywall-card-premium{border-color:#ead9a5;background:linear-gradient(145deg,#fff 0%,#fffaf0 100%)}
+.paywall-card-premium .eyebrow{color:#9a7415}
+@media(max-width:800px){
+  .topbar-inner{min-height:58px;align-items:center}
+  .topbar-right{margin-left:auto}
+  .dashboard-page .section-heading{margin-bottom:18px}
+  .dashboard-page .section-heading h2{font-size:24px;line-height:1.12}
+  .dashboard-page .section-heading p{font-size:14px;line-height:1.45}
+  .section-grid{gap:14px}
+  .exam-card{padding:20px 17px}
+  .exam-card h3{font-size:20px;line-height:1.15}
+  .exam-card p{font-size:14px;line-height:1.45}
+  .exam-details{font-size:11px}
+}
+@media(max-width:480px){
+  .welcome-row h1{max-width:100%;font-size:30px;line-height:1.08}
+  .welcome-row p{max-width:34ch}
+  .overview-grid{gap:10px}
+  .overview-card{min-height:148px}
+  .overview-main{min-height:auto}
+  .overview-card .muted{display:block;line-height:1.3}
+  .exam-card{padding:18px 16px}
+  .exam-card-top{align-items:flex-start;gap:10px}
+  .premium-badge{font-size:9px;padding:4px 7px}
+  .premium-note{margin-top:12px}
+}
