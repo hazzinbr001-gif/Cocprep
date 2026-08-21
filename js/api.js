@@ -167,6 +167,10 @@ async function apiAdminReports(payload = {}) {
   return apiCallFunction("admin-question-reports", payload);
 }
 
+async function apiAdminPayments(payload = {}) {
+  return apiCallFunction("approve-payment", payload);
+}
+
 
 async function apiGetQuestionTopics(section = "mcq") {
   const { data: sessionData } = await supabaseClient.auth.getSession();
