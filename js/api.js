@@ -166,3 +166,18 @@ async function apiAdminQuestions(payload = {}) {
 async function apiAdminReports(payload = {}) {
   return apiCallFunction("admin-question-reports", payload);
 }
+
+
+async function apiGetQuestionTopics(section = "mcq") {
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  if (!token) throw new Error("Not signed in.");
+  const res = await fetch(SUPABASE_URL + "/functions/v1/get-next-question", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token, "apikey": SUPABASE_ANON_KEY },
+    body: JSON.stringify({ action: "topics", section }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || ("Request failed (" + res.status + ")"));
+  return body.topics || [];
+}
