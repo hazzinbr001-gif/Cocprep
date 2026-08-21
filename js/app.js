@@ -1,4 +1,4 @@
-const screens={auth:document.getElementById("screen-auth"),dashboard:document.getElementById("screen-dashboard"),practice:document.getElementById("screen-practice"),results:document.getElementById("screen-results")},topbar=document.getElementById("topbar"),userEmailEl=document.getElementById("userEmail");
+const screens={auth:document.getElementById("screen-auth"),dashboard:document.getElementById("screen-dashboard"),practice:document.getElementById("screen-practice"),results:document.getElementById("screen-results"),admin:document.getElementById("screen-admin")},topbar=document.getElementById("topbar"),userEmailEl=document.getElementById("userEmail");
 const celebrationImages=[
   "https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1400&q=82",
   "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&w=1400&q=82",
