@@ -81,7 +81,7 @@ adminEl.payments?.addEventListener("click",async e=>{
 });
 document.getElementById("adminRefreshPaymentsBtn")?.addEventListener("click",loadAdminPayments);
 
-async function refreshAdminAccess(){try{await apiAdminQuestions({action:"list",limit:1});if(adminEl.nav)adminEl.nav.hidden=false}catch(_){if(adminEl.nav)adminEl.nav.hidden=true}}
+async function refreshAdminAccess(){try{await apiAdminQuestions({action:"list",limit:1});if(adminEl.nav)adminEl.nav.hidden=false;const menuAdmin=document.getElementById("menuAdminBtn");if(menuAdmin)menuAdmin.hidden=false}catch(_){if(adminEl.nav)adminEl.nav.hidden=true;const menuAdmin=document.getElementById("menuAdminBtn");if(menuAdmin)menuAdmin.hidden=true}}
 async function loadAdmin(){adminEl.questionStatus.textContent="Loading questions and reports…";try{const [q,r]=await Promise.all([apiAdminQuestions({action:"list",limit:500}),apiAdminReports({action:"list"})]);adminState.questions=q.questions||[];adminState.reports=r.reports||[];adminEl.count.textContent=adminState.questions.length;adminEl.reportCount.textContent=adminState.reports.length;adminEl.pending.textContent=r.pending_reports??adminState.reports.filter(x=>x.status==="pending").length;adminEl.questionStatus.textContent="";renderAdminQuestions(true);renderAdminReports();if(adminEl.nav)adminEl.nav.hidden=false}catch(e){adminEl.questionStatus.textContent=e.message||"Could not load admin data.";adminEl.list.innerHTML='<div class="admin-empty admin-error">Admin access is unavailable.</div>';}
   loadAdminPayments();
 }
