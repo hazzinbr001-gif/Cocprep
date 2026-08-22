@@ -25,6 +25,12 @@ function buildProgressCards() {
     return `<div class="result-stat progress-section-stat"><span class="section-tag">${label}</span><strong>${s.answered}</strong><span>Answered</span><strong>${s.correct}</strong><span>Correct</span><strong>${s.incorrect}</strong><span>Incorrect</span><strong>${s.accuracy}</strong><span>Accuracy</span></div>`;
   }).join("");
 }
+function buildOverallStats() {
+  const summary = stats(allAttempts);
+  document.getElementById("statAnswered").textContent = summary.answered;
+  document.getElementById("statCorrect").textContent = summary.correct;
+  document.getElementById("statAccuracy").textContent = summary.accuracy;
+}
 function reviewAttempt(attempt) {
   const q = attempt.questions;
   const modal = document.createElement("div");
@@ -56,6 +62,7 @@ function renderHistory() {
 async function loadResults() {
   try {
     allAttempts = await apiGetAttemptHistory();
+    buildOverallStats();
     buildProgressCards();
     const heading = document.querySelector(".history-panel .section-heading");
     if (heading && !heading.querySelector(".history-filters")) {
