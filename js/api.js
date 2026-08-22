@@ -63,7 +63,7 @@ async function apiSubmitAnswer({ questionId, selectedChoice, section }) {
 async function apiGetAttemptHistory() {
   const { data, error } = await supabaseClient
     .from("question_attempts")
-    .select("id, question_id, selected_answer, correct, answered_at, section, questions(id, question_text, choices, statements, explanation, correct_answer, section, question_type, topic, condition, unit)")
+    .select("id, question_id, selected_answer, correct, answered_at, section, questions(id, question_text, choices, explanation, correct_answer, section, question_type, topic, condition, unit)")
     .order("answered_at", { ascending: false })
     ;
 
