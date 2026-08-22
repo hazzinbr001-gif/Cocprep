@@ -51,7 +51,7 @@ async function updatePremiumUI() {
 
 async function loadDashboard() {
   try {
-    const attempts = await apiGetAttemptHistory();
+    const [attempts, progress] = await Promise.all([apiGetAttemptHistory(), apiGetStudentProgress()]);
     const bySection = (section) => attempts.filter((a) => (a.section || a.questions?.section) === section);
     const a = bySection("mcq"), b = bySection("truefalse");
     const accuracy = (list) => list.length ? Math.round(list.filter((x) => x.correct).length / list.length * 100) : null;
@@ -66,7 +66,8 @@ async function loadDashboard() {
     document.getElementById("tfAttempted").textContent = b.length;
     document.getElementById("tfAccuracy").textContent = accuracy(b) === null ? "—" : `${accuracy(b)}%`;
     document.getElementById("tfProgress").style.width = `${Math.min(100, b.length / 20 * 100)}%`;
-    document.getElementById("streakValue").textContent = `${calculateStreak(all)} ${calculateStreak(all) === 1 ? "day" : "days"}`;
+    const streak = Number(progress?.current_streak ?? calculateStreak(all));
+    document.getElementById("streakValue").textContent = `${streak} ${streak === 1 ? "day" : "days"}`;
     renderRecentAttempts(all);
   } catch (_) {
     document.getElementById("streakValue").textContent = "0 days";
