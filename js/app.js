@@ -28,6 +28,7 @@ function navigatePractice(section, replace = false) {
 function showScreen(name, section = sectionFromRoute() || activeSection || "mcq") {
   Object.entries(screens).forEach(([key, node]) => { if (node) node.hidden = key !== name; });
   document.querySelectorAll("[data-nav]").forEach((node) => node.classList.toggle("is-active", node.dataset.nav === name));
+  closeMobileMenu();
   if (name === "dashboard") { loadDashboard(); loadFlaggedQuestions(); }
   if (name === "results") loadResults();
   if (name === "admin") loadAdmin();
@@ -65,9 +66,36 @@ async function loadDashboard() {
     document.getElementById("tfAttempted").textContent = b.length;
     document.getElementById("tfAccuracy").textContent = accuracy(b) === null ? "—" : `${accuracy(b)}%`;
     document.getElementById("tfProgress").style.width = `${Math.min(100, b.length / 20 * 100)}%`;
+    document.getElementById("streakValue").textContent = `${calculateStreak(all)} ${calculateStreak(all) === 1 ? "day" : "days"}`;
     renderRecentAttempts(all);
-  } catch (_) {}
+  } catch (_) {
+    document.getElementById("streakValue").textContent = "0 days";
+  }
   updatePremiumUI();
+}
+
+function localDay(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : new Intl.DateTimeFormat("en-CA", {
+    year: "numeric", month: "2-digit", day: "2-digit"
+  }).format(date);
+}
+
+function calculateStreak(attempts) {
+  const days = new Set((attempts || []).map((attempt) => localDay(attempt.answered_at)).filter(Boolean));
+  if (!days.size) return 0;
+  const today = new Date();
+  const todayKey = localDay(today);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  let cursor = days.has(todayKey) ? today : (days.has(localDay(yesterday)) ? yesterday : null);
+  if (!cursor) return 0;
+  let streak = 0;
+  while (days.has(localDay(cursor))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
 }
 
 function renderRecentAttempts(attempts) {
@@ -93,6 +121,34 @@ document.querySelectorAll("[data-nav]").forEach((node) => node.addEventListener(
   if (node.dataset.nav === "practice") return navigatePractice("mcq");
   showScreen(node.dataset.nav);
 }));
+
+function createMobileMenu() {
+  const button = document.getElementById("mobileMenuBtn");
+  if (!button || document.getElementById("appMenuPanel")) return;
+  const panel = document.createElement("div");
+  panel.id = "appMenuPanel";
+  panel.className = "app-menu-panel";
+  panel.hidden = true;
+  panel.innerHTML = `<div class="app-menu-backdrop" data-menu-close></div><aside class="app-menu-drawer" aria-label="Application menu"><div class="app-menu-head"><strong>COCPrep</strong><button type="button" class="app-menu-close" data-menu-close aria-label="Close menu">×</button></div><nav>${["dashboard", "practice", "results", "admin"].map((name) => `<button type="button" data-menu-nav="${name}" ${name === "admin" ? 'id="menuAdminBtn"' : ""}>${name === "dashboard" ? "Dashboard" : name === "practice" ? "Practice" : name === "results" ? "My progress" : "Admin"}</button>`).join("")}</nav></aside>`;
+  document.body.appendChild(panel);
+  panel.querySelectorAll("[data-menu-close]").forEach((node) => node.addEventListener("click", closeMobileMenu));
+  panel.querySelectorAll("[data-menu-nav]").forEach((node) => node.addEventListener("click", () => {
+    const name = node.dataset.menuNav;
+    if (name === "practice") navigatePractice("mcq");
+    else showScreen(name);
+  }));
+  button.addEventListener("click", () => {
+    panel.hidden = !panel.hidden;
+    button.setAttribute("aria-expanded", String(!panel.hidden));
+  });
+}
+function closeMobileMenu() {
+  const panel = document.getElementById("appMenuPanel");
+  const button = document.getElementById("mobileMenuBtn");
+  if (panel) panel.hidden = true;
+  if (button) button.setAttribute("aria-expanded", "false");
+}
+createMobileMenu();
 document.querySelectorAll("[data-start]").forEach((button) => button.addEventListener("click", () => {
   const section = button.dataset.start === "truefalse" ? "truefalse" : "mcq";
   navigatePractice(section);
