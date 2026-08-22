@@ -19,11 +19,12 @@ function stats(list) {
 function buildProgressCards() {
   const grid = document.querySelector(".results-stat-grid");
   if (!grid) return;
-  grid.innerHTML = ["mcq", "truefalse"].map((section) => {
+  grid.querySelectorAll(".progress-section-stat").forEach((node) => node.remove());
+  grid.insertAdjacentHTML("beforeend", ["mcq", "truefalse"].map((section) => {
     const label = section === "mcq" ? "SECTION A · MULTIPLE CHOICE" : "SECTION B · TRUE / FALSE";
     const s = stats(allAttempts.filter((x) => sectionOf(x) === section));
     return `<div class="result-stat progress-section-stat"><span class="section-tag">${label}</span><strong>${s.answered}</strong><span>Answered</span><strong>${s.correct}</strong><span>Correct</span><strong>${s.incorrect}</strong><span>Incorrect</span><strong>${s.accuracy}</strong><span>Accuracy</span></div>`;
-  }).join("");
+  }).join(""));
 }
 function buildOverallStats() {
   const summary = stats(allAttempts);
