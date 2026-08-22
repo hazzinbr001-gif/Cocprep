@@ -1,8 +1,6 @@
-// COCPrep — Supabase client + edge function helpers
-// Loads the Supabase JS library from CDN, then exposes small wrapper
-// functions the rest of the app calls into.
-
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// COCPrep — edge function + database helpers
+// supabaseClient is created once in config.js (which loads before this
+// file); this file only consumes it, so no client is redeclared here.
 
 /**
  * Calls the get-next-question edge function.
