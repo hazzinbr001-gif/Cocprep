@@ -1,271 +1,186 @@
-// COCPrep — edge function + database helpers
-// supabaseClient is created once in config.js (which loads before this
-// file); this file only consumes it, so no client is redeclared here.
+const screens = {
+  auth: document.getElementById("screen-auth"),
+  dashboard: document.getElementById("screen-dashboard"),
+  practice: document.getElementById("screen-practice"),
+  results: document.getElementById("screen-results"),
+  admin: document.getElementById("screen-admin"),
+};
+const topbar = document.getElementById("topbar");
+const userEmailEl = document.getElementById("userEmail");
+let premiumAccess = false;
 
-/**
- * Calls the get-next-question edge function.
- * Requires an active session — throws if none.
- */
-async function apiGetNextQuestion({ unit, topic, condition, most_tested, section } = {}) {
-  const { data: sessionData } = await supabaseClient.auth.getSession();
-  const token = sessionData?.session?.access_token;
-  if (!token) throw new Error("Not signed in.");
+function sectionFromRoute() {
+  const match = location.hash.match(/^#\/practice\/(section-a|section-b)$/);
+  return match ? (match[1] === "section-b" ? "truefalse" : "mcq") : null;
+}
 
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/get-next-question`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-      "apikey": SUPABASE_ANON_KEY,
-    },
-    body: JSON.stringify({ unit, topic, condition, most_tested, section }),
-  });
+function routeFor(section) {
+  return section === "truefalse" ? "#/practice/section-b" : "#/practice/section-a";
+}
 
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok && !body.blocked) {
-    throw new Error(body.error || `Request failed (${res.status})`);
+function navigatePractice(section, replace = false) {
+  const route = routeFor(section);
+  if (replace) history.replaceState({}, "", route);
+  else if (location.hash !== route) history.pushState({}, "", route);
+  showScreen("practice", section);
+}
+
+function showScreen(name, section = sectionFromRoute() || activeSection || "mcq") {
+  Object.entries(screens).forEach(([key, node]) => { if (node) node.hidden = key !== name; });
+  document.querySelectorAll("[data-nav]").forEach((node) => node.classList.toggle("is-active", node.dataset.nav === name));
+  closeMobileMenu();
+  if (name === "dashboard") { loadDashboard(); loadFlaggedQuestions(); }
+  if (name === "results") loadResults();
+  if (name === "admin") loadAdmin();
+  if (name === "practice" && activeSection !== section) startExam(section);
+  if (name === "practice" && !currentQuestion) startExam(section);
+}
+
+async function updatePremiumUI() {
+  premiumAccess = await apiCheckEntitlement();
+  const card = document.querySelector(".tf-card");
+  if (!card) return;
+  card.classList.toggle("has-premium-access", premiumAccess);
+  const badge = card.querySelector(".premium-badge");
+  const note = card.querySelector(".premium-note");
+  const button = card.querySelector("[data-start='truefalse']");
+  if (badge) badge.textContent = premiumAccess ? "🏆 Premium" : "🔒 Premium";
+  if (note) { note.hidden = premiumAccess; note.textContent = "Premium access required"; }
+  if (button) button.textContent = premiumAccess ? "Start True / False practice →" : "Unlock Section B →";
+}
+
+async function loadDashboard() {
+  const [attemptResult, progressResult] = await Promise.allSettled([apiGetAttemptHistory(), apiGetStudentProgress()]);
+  const attempts = attemptResult.status === "fulfilled" ? attemptResult.value : [];
+  const progress = progressResult.status === "fulfilled" ? progressResult.value : null;
+  const bySection = (section) => attempts.filter((a) => (a.section || a.questions?.section) === section);
+  const aAttempts = bySection("mcq"), bAttempts = bySection("truefalse");
+  const aAnswered = Number(progress?.section_a_answered ?? aAttempts.length);
+  const aCorrect = Number(progress?.section_a_correct ?? aAttempts.filter((x) => x.correct).length);
+  const bAnswered = Number(progress?.section_b_answered ?? bAttempts.length);
+  const bCorrect = Number(progress?.section_b_correct ?? bAttempts.filter((x) => x.correct).length);
+  const allAnswered = aAnswered + bAnswered, allCorrect = aCorrect + bCorrect;
+  const accuracy = (answered, correct) => answered ? Math.round(correct / answered * 100) : null;
+  const overall = accuracy(allAnswered, allCorrect);
+  document.getElementById("overallAccuracy").textContent = overall === null ? "—" : overall + "%";
+  document.getElementById("overallProgressBar").style.width = (overall || 0) + "%";
+  document.getElementById("overviewAnswered").textContent = allAnswered;
+  document.getElementById("overviewSessions").textContent = allAnswered ? Math.ceil(allAnswered / 10) : 0;
+  document.getElementById("mcqAttempted").textContent = aAnswered;
+  document.getElementById("mcqAccuracy").textContent = accuracy(aAnswered, aCorrect) === null ? "—" : accuracy(aAnswered, aCorrect) + "%";
+  document.getElementById("mcqProgress").style.width = Math.min(100, aAnswered / 20 * 100) + "%";
+  document.getElementById("tfAttempted").textContent = bAnswered;
+  document.getElementById("tfAccuracy").textContent = accuracy(bAnswered, bCorrect) === null ? "—" : accuracy(bAnswered, bCorrect) + "%";
+  document.getElementById("tfProgress").style.width = Math.min(100, bAnswered / 20 * 100) + "%";
+  const streak = Number(progress?.current_streak ?? calculateStreak(attempts));
+  document.getElementById("streakValue").textContent = streak + " " + (streak === 1 ? "day" : "days");
+  renderRecentAttempts(attempts);
+  updatePremiumUI();
+}
+function localDay(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : new Intl.DateTimeFormat("en-CA", {
+    year: "numeric", month: "2-digit", day: "2-digit"
+  }).format(date);
+}
+
+function calculateStreak(attempts) {
+  const days = new Set((attempts || []).map((attempt) => localDay(attempt.answered_at)).filter(Boolean));
+  if (!days.size) return 0;
+  const today = new Date();
+  const todayKey = localDay(today);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  let cursor = days.has(todayKey) ? today : (days.has(localDay(yesterday)) ? yesterday : null);
+  if (!cursor) return 0;
+  let streak = 0;
+  while (days.has(localDay(cursor))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
   }
-  return body;
+  return streak;
 }
 
-/**
- * Calls the submit-answer edge function.
- * Expected to return { correct: boolean, correct_answer, explanation }.
- */
-async function apiSubmitAnswer({ questionId, selectedChoice, section }) {
-  const { data: sessionData } = await supabaseClient.auth.getSession();
-  const token = sessionData?.session?.access_token;
-  if (!token) throw new Error("Not signed in.");
+function renderRecentAttempts(attempts) {
+  const target = document.getElementById("recentSessions");
+  if (!target) return;
+  target.innerHTML = attempts.slice(0, 3).map((x) =>
+    `<div class="history-item"><span class="history-dot ${x.correct ? "is-correct" : ""}"></span><span class="history-text">${x.correct ? "Correct answer" : "Needs review"}</span><span class="history-time">${new Date(x.answered_at).toLocaleDateString()}</span></div>`
+  ).join("") || '<div class="empty-inline"><span>◷</span><div><strong>No sessions yet</strong><p>Your answered questions will appear here.</p></div></div>';
+}
 
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/submit-answer`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-      "apikey": SUPABASE_ANON_KEY,
-    },
-    body: JSON.stringify({ question_id: questionId, selected_answer: selectedChoice, section }),
+function loadFlaggedQuestions() {
+  apiGetQuestionFlags().then(({ flags }) => {
+    const target = document.getElementById("flaggedQuestions");
+    if (!target) return;
+    target.innerHTML = (flags || []).slice(0, 4).map((f) =>
+      `<div class="history-item"><span class="history-dot" style="background:#f4c95d"></span><span class="history-text">${f.questions?.question_text || "Flagged question"}</span><span class="history-time">${f.questions?.section === "truefalse" ? "Section B" : "Section A"}</span></div>`
+    ).join("") || '<div class="empty-inline"><span>⚑</span><div><strong>No flagged questions</strong><p>Flag a question during practice to revisit it here.</p></div></div>';
+  }).catch(() => {});
+}
+
+document.querySelectorAll("[data-nav]").forEach((node) => node.addEventListener("click", (event) => {
+  event.preventDefault();
+  if (node.dataset.nav === "practice") return navigatePractice("mcq");
+  showScreen(node.dataset.nav);
+}));
+
+function createMobileMenu() {
+  const button = document.getElementById("mobileMenuBtn");
+  if (!button || document.getElementById("appMenuPanel")) return;
+  const panel = document.createElement("div");
+  panel.id = "appMenuPanel";
+  panel.className = "app-menu-panel";
+  panel.hidden = true;
+  panel.innerHTML = `<div class="app-menu-backdrop" data-menu-close></div><aside class="app-menu-drawer" aria-label="Application menu"><div class="app-menu-head"><strong>COCPrep</strong><button type="button" class="app-menu-close" data-menu-close aria-label="Close menu">×</button></div><nav>${["dashboard", "practice", "results", "admin"].map((name) => `<button type="button" data-menu-nav="${name}" ${name === "admin" ? 'id="menuAdminBtn"' : ""}>${name === "dashboard" ? "Dashboard" : name === "practice" ? "Practice" : name === "results" ? "My progress" : "Admin"}</button>`).join("")}</nav></aside>`;
+  document.body.appendChild(panel);
+  panel.querySelectorAll("[data-menu-close]").forEach((node) => node.addEventListener("click", closeMobileMenu));
+  panel.querySelectorAll("[data-menu-nav]").forEach((node) => node.addEventListener("click", () => {
+    const name = node.dataset.menuNav;
+    if (name === "practice") navigatePractice("mcq");
+    else showScreen(name);
+  }));
+  button.addEventListener("click", () => {
+    panel.hidden = !panel.hidden;
+    button.setAttribute("aria-expanded", String(!panel.hidden));
   });
-
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(body.error || `Request failed (${res.status})`);
-  }
-  return body;
 }
-
-/**
- * Fetches this user's attempt history directly from the question_attempts
- * table (protected by RLS: users can only read their own rows).
- */
-async function apiGetAttemptHistory() {
-  const { data, error } = await supabaseClient
-    .from("question_attempts")
-    .select("id, question_id, selected_answer, correct, answered_at, section, questions(id, question_text, choices, explanation, correct_answer, section, question_type, topic, condition, unit)")
-    .order("answered_at", { ascending: false })
-    ;
-
-  if (error) throw new Error(error.message);
-  return data ?? [];
+function closeMobileMenu() {
+  const panel = document.getElementById("appMenuPanel");
+  const button = document.getElementById("mobileMenuBtn");
+  if (panel) panel.hidden = true;
+  if (button) button.setAttribute("aria-expanded", "false");
 }
+createMobileMenu();
+document.querySelectorAll("[data-start]").forEach((button) => button.addEventListener("click", () => {
+  const section = button.dataset.start === "truefalse" ? "truefalse" : "mcq";
+  navigatePractice(section);
+}));
+window.addEventListener("popstate", () => {
+  const section = sectionFromRoute();
+  if (section) showScreen("practice", section);
+});
+window.addEventListener("hashchange", () => {
+  const section = sectionFromRoute();
+  if (section) showScreen("practice", section);
+});
 
-/** Returns the authenticated student's persisted score and streak. */
-async function apiGetStudentProgress() {
-  const { data: sessionData } = await supabaseClient.auth.getSession();
-  const userId = sessionData?.session?.user?.id;
-  if (!userId) return null;
-  const { data, error } = await supabaseClient
-    .from("student_progress")
-    .select("user_id, current_streak, last_activity_date, section_a_answered, section_a_correct, section_b_answered, section_b_correct, updated_at")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return data;
+function enterSignedInState(session) {
+  topbar.hidden = false;
+  userEmailEl.textContent = session.user.email || "";
+  const welcomeName = document.getElementById("welcomeName");
+  if (welcomeName) welcomeName.textContent = (session.user.email || "candidate").split("@")[0];
+
+  // Do not make additional Supabase calls inside onAuthStateChange. Supabase
+  // is still completing signInWithPassword at that point, and nested auth
+  // calls can deadlock the sign-in promise. Start app initialization after
+  // the auth callback has returned.
+  setTimeout(() => {
+    const section = sectionFromRoute();
+    showScreen(section ? "practice" : "dashboard", section || "mcq");
+    refreshAdminAccess();
+  }, 0);
 }
-
-/**
- * Calls submit-payment-code — user has already sent M-Pesa money manually
- * and is submitting their confirmation code. This queues a pending payment;
- * it does NOT unlock access on its own (an admin must approve it).
- */
-async function apiSubmitPaymentCode(mpesaCode) {
-  const { data: sessionData } = await supabaseClient.auth.getSession();
-  const token = sessionData?.session?.access_token;
-  if (!token) throw new Error("Not signed in.");
-
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/submit-payment-code`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-      "apikey": SUPABASE_ANON_KEY,
-    },
-    body: JSON.stringify({ mpesa_code: mpesaCode }),
-  });
-
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(body.error || `Request failed (${res.status})`);
-  }
-  return body;
-}
-
-/**
- * Checks whether the current user has an active full_access entitlement.
- * Used to show "pending approval" vs "unlocked" state on the paywall.
- */
-async function apiCheckEntitlement() {
-  const { data: sessionData } = await supabaseClient.auth.getSession();
-  const userId = sessionData?.session?.user?.id;
-  if (!userId) return false;
-
-  // Do not use maybeSingle here: an account can have more than one
-  // entitlement after a payment is corrected or re-approved. In that case
-  // maybeSingle() returns an error and the UI incorrectly shows the paywall.
-  const { data, error } = await supabaseClient
-    .from("entitlements")
-    .select("id, product, expires_at, user_id")
-    .eq("user_id", userId)
-    .eq("product", "full_access")
-    .order("expires_at", { ascending: false, nullsFirst: true })
-    .limit(20);
-
-  // Never infer entitlement from a failed read. A checkout visit, a local
-  // flag, or a transient database error is not proof of payment.
-  if (error) return false;
-  return (data ?? []).some((entitlement) =>
-    !entitlement.expires_at || new Date(entitlement.expires_at) >= new Date()
-  );
-}
-
-/**
- * Checks whether the current user has a pending (unreviewed) payment.
- * Used to show "we're checking your payment" state.
- */
-async function apiGetPendingPayment() {
-  const { data: sessionData } = await supabaseClient.auth.getSession();
-  const userId = sessionData?.session?.user?.id;
-  if (!userId) return null;
-
-  const { data, error } = await supabaseClient
-    .from("payments")
-    .select("id, status, created_at, user_id")
-    .eq("user_id", userId)
-    .eq("status", "pending")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) return null;
-  return data;
-}
-
-async function apiCallFunction(name, payload) {
-  const { data } = await supabaseClient.auth.getSession();
-  const token = data?.session?.access_token;
-  if (!token) throw new Error("Not signed in.");
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
-    method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}`, "apikey": SUPABASE_ANON_KEY },
-    body: JSON.stringify(payload),
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(body.error || `Request failed (${res.status})`), { code: res.status, body });
-  return body;
-}
-
-async function apiToggleQuestionFlag(questionId) {
-  return apiCallFunction("toggle-question-flag", { question_id: questionId });
-}
-
-async function apiSubmitQuestionReport(questionId, reason, details) {
-  return apiCallFunction("submit-question-report", { question_id: questionId, reason, details });
-}
-
-async function apiGetQuestionFlags() {
-  return apiCallFunction("get-question-flags", {});
-}
-
-
-async function apiAdminQuestions(payload = {}) {
-  return apiCallFunction("admin-questions", payload);
-}
-
-async function apiAdminReports(payload = {}) {
-  return apiCallFunction("admin-question-reports", payload);
-}
-
-async function apiAdminPayments(payload = {}) {
-  return apiCallFunction("approve-payment", payload);
-}
-
-
-async function apiGetQuestionTopics(section = "mcq") {
-  const { data: sessionData } = await supabaseClient.auth.getSession();
-  const token = sessionData?.session?.access_token;
-  if (!token) throw new Error("Not signed in.");
-  const res = await fetch(SUPABASE_URL + "/functions/v1/get-next-question", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token, "apikey": SUPABASE_ANON_KEY },
-    body: JSON.stringify({ action: "topics", section }),
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || ("Request failed (" + res.status + ")"));
-  return body.topics || [];
-}
-
-async function apiGetQuestionComments(questionId, page = 0, pageSize = 10) {
-  const from = page * pageSize;
-  const { data, error } = await supabaseClient
-    .from("comments")
-    .select("id, question_id, user_id, body, content, parent_comment_id, created_at, updated_at")
-    .eq("question_id", questionId)
-    .eq("is_deleted", false)
-    .order("created_at", { ascending: true })
-    .range(from, from + pageSize - 1);
-  if (error) throw new Error(error.message);
-  return data || [];
-}
-
-async function apiCreateQuestionComment(questionId, content, parentCommentId = null) {
-  const { data: sessionData } = await supabaseClient.auth.getSession();
-  const userId = sessionData?.session?.user?.id;
-  if (!userId) throw new Error("Sign in to join the discussion.");
-  if (!(await apiCheckEntitlement())) throw new Error("Premium access is required to join the discussion.");
-  const { data, error } = await supabaseClient.from("comments").insert({
-    question_id: questionId,
-    user_id: userId,
-    body: content,
-    content,
-    parent_comment_id: parentCommentId,
-  }).select("id, question_id, user_id, body, content, parent_comment_id, created_at, updated_at").single();
-  if (error) throw new Error(error.message);
-  return data;
-}
-
-async function apiToggleCommentLike(commentId) {
-  const { data: sessionData } = await supabaseClient.auth.getSession();
-  const userId = sessionData?.session?.user?.id;
-  if (!userId) throw new Error("Sign in to like a comment.");
-  const { data: existing, error: readError } = await supabaseClient
-    .from("comment_likes").select("id").eq("comment_id", commentId).eq("user_id", userId).maybeSingle();
-  if (readError) throw new Error(readError.message);
-  if (existing) {
-    const { error } = await supabaseClient.from("comment_likes").delete().eq("id", existing.id);
-    if (error) throw new Error(error.message);
-    return { liked: false };
-  }
-  const { error } = await supabaseClient.from("comment_likes").insert({ comment_id: commentId, user_id: userId });
-  if (error) throw new Error(error.message);
-  return { liked: true };
-}
-
-async function apiReportComment(commentId, reason, details = "") {
-  const { data: sessionData } = await supabaseClient.auth.getSession();
-  const userId = sessionData?.session?.user?.id;
-  if (!userId) throw new Error("Sign in to report a comment.");
-  const { error } = await supabaseClient.from("comment_reports").insert({
-    comment_id: commentId, user_id: userId, reason, details
-  });
-  if (error) throw new Error(error.message);
-  return { submitted: true };
-}
+function enterSignedOutState() { topbar.hidden = true; showScreen("auth"); }
+supabaseClient.auth.onAuthStateChange((_event, session) => session ? enterSignedInState(session) : enterSignedOutState());
+supabaseClient.auth.getSession().then(({ data }) => data?.session ? enterSignedInState(data.session) : enterSignedOutState());
