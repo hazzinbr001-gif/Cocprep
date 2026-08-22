@@ -65,10 +65,24 @@ async function apiGetAttemptHistory() {
     .from("question_attempts")
     .select("id, question_id, selected_answer, correct, answered_at, section, questions(id, question_text, choices, statements, explanation, correct_answer, section, question_type, topic, condition, unit)")
     .order("answered_at", { ascending: false })
-    .limit(100);
+    ;
 
   if (error) throw new Error(error.message);
   return data ?? [];
+}
+
+/** Returns the authenticated student's persisted score and streak. */
+async function apiGetStudentProgress() {
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  const userId = sessionData?.session?.user?.id;
+  if (!userId) return null;
+  const { data, error } = await supabaseClient
+    .from("student_progress")
+    .select("user_id, current_streak, last_activity_date, section_a_answered, section_a_correct, section_b_answered, section_b_correct, updated_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
 }
 
 /**
