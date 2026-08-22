@@ -1,88 +1,85 @@
-const adminState={questions:[],reports:[],payments:[],visibleCount:25};
-const ADMIN_PAGE_SIZE=25;
-const adminEl={
-  nav:document.getElementById("adminNavBtn"),list:document.getElementById("adminQuestionList"),reports:document.getElementById("adminReportList"),
-  search:document.getElementById("adminQuestionSearch"),section:document.getElementById("adminSectionFilter"),questionStatus:document.getElementById("adminQuestionStatus"),reportStatus:document.getElementById("adminReportStatus"),
-  count:document.getElementById("adminQuestionCount"),reportCount:document.getElementById("adminReportCount"),pending:document.getElementById("adminPendingCount"),
-  payments:document.getElementById("adminPaymentList"),paymentsStatus:document.getElementById("adminPaymentsStatus"),pendingPayments:document.getElementById("adminPendingPaymentsCount")
+const resultsEl = {
+  historyList: document.getElementById("historyList"),
+  historyEmpty: document.getElementById("historyEmpty"),
 };
-function adminEscape(value){return String(value??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));}
-function adminChoiceJson(value){try{return JSON.stringify(typeof value==="string"?JSON.parse(value):value??{},null,2)}catch(_){return String(value??"")}}
-function adminQuestionCardHtml(q){
-  const id=adminEscape(q.id);
-  return '<details class="admin-question" data-id="'+id+'"><summary><span class="admin-question-section '+(q.section==="truefalse"?"is-premium":"")+'">'+(q.section==="truefalse"?"SECTION B":"SECTION A")+'</span><span class="admin-question-preview">'+adminEscape(q.question_text)+'</span><span class="admin-edit-label">Edit</span></summary><form class="admin-question-form" data-id="'+id+'"><div class="admin-form-grid"><label class="admin-field admin-field-wide"><span>Question wording</span><textarea name="question_text" rows="3" required>'+adminEscape(q.question_text)+'</textarea></label><label class="admin-field admin-field-wide"><span>Choices JSON</span><textarea name="choices" rows="5" required>'+adminEscape(adminChoiceJson(q.choices))+'</textarea><small>Example: [{"key":"A","text":"Option one"}]</small></label><label class="admin-field"><span>Correct answer</span><input name="correct_answer" value="'+adminEscape(q.correct_answer)+'" required></label><label class="admin-field"><span>Section</span><select name="section"><option value="mcq" '+(q.section==="mcq"?"selected":"")+'>Section A · MCQ</option><option value="truefalse" '+(q.section==="truefalse"?"selected":"")+'>Section B · True / False</option></select></label><label class="admin-field"><span>Question type</span><select name="question_type"><option value="mcq" '+(q.question_type==="mcq"?"selected":"")+'>MCQ</option><option value="truefalse" '+(q.question_type==="truefalse"?"selected":"")+'>True / False</option></select></label><label class="admin-field"><span>Subject</span><input name="subject" value="'+adminEscape(q.subject)+'"></label><label class="admin-field"><span>Topic</span><input name="topic" value="'+adminEscape(q.topic)+'"></label><label class="admin-field"><span>Unit</span><input name="unit" value="'+adminEscape(q.unit)+'"></label><label class="admin-field"><span>Difficulty</span><input name="difficulty" value="'+adminEscape(q.difficulty)+'"></label><label class="admin-field admin-field-wide"><span>Explanation</span><textarea name="explanation" rows="4">'+adminEscape(q.explanation)+'</textarea></label><label class="admin-free-toggle"><input type="checkbox" name="is_free" '+(q.is_free?"checked":"")+'> Available in Section A free pool</label></div><div class="admin-form-actions"><span class="admin-save-status"></span><button class="btn btn-primary btn-sm" type="submit">Save correction</button></div></form></details>';
-}
-function adminFilteredQuestions(){
-  const search=(adminEl.search?.value||"").toLowerCase().trim(),section=adminEl.section?.value||"";
-  return adminState.questions.filter(q=>(!section||q.section===section)&&(!search||[q.question_text,q.subject,q.topic].some(v=>String(v||"").toLowerCase().includes(search))));
-}
-function renderAdminQuestions(resetPage){
-  if(resetPage)adminState.visibleCount=ADMIN_PAGE_SIZE;
-  const rows=adminFilteredQuestions();
-  if(!rows.length){adminEl.list.innerHTML='<div class="admin-empty">No questions match this filter.</div>';return}
-  const visible=rows.slice(0,adminState.visibleCount);
-  let html=visible.map(adminQuestionCardHtml).join("");
-  if(rows.length>visible.length){
-    html+='<div class="admin-load-more-wrap" style="padding:16px 0;text-align:center"><button type="button" class="btn btn-secondary btn-sm" id="adminLoadMoreQuestionsBtn">Load more ('+(rows.length-visible.length)+' remaining)</button></div>';
-  }
-  adminEl.list.innerHTML=html;
-  const loadMoreBtn=document.getElementById("adminLoadMoreQuestionsBtn");
-  if(loadMoreBtn)loadMoreBtn.addEventListener("click",()=>{adminState.visibleCount+=ADMIN_PAGE_SIZE;renderAdminQuestions(false)});
-}
-function reportLabel(reason){return String(reason||"other").replaceAll("_"," ")}
-function renderAdminReports(){if(!adminState.reports.length){adminEl.reports.innerHTML='<div class="admin-empty">No reported issues yet.</div>';return}adminEl.reports.innerHTML=adminState.reports.map(r=>'<form class="admin-report" data-id="'+adminEscape(r.id)+'"><div class="admin-report-top"><div><span class="admin-question-section '+(r.questions?.section==="truefalse"?"is-premium":"")+'">'+(r.questions?.section==="truefalse"?"SECTION B":"SECTION A")+'</span><strong>'+adminEscape(reportLabel(r.reason))+'</strong></div><span class="admin-report-date">'+adminEscape(new Date(r.created_at).toLocaleDateString())+'</span></div><p class="admin-report-question">'+adminEscape(r.questions?.question_text||"Question unavailable")+'</p><p class="admin-report-details">'+adminEscape(r.details||"No additional details provided.")+'</p><div class="admin-report-controls"><select name="status"><option value="pending" '+(r.status==="pending"?"selected":"")+'>Pending</option><option value="under_review" '+(r.status==="under_review"?"selected":"")+'>Under review</option><option value="question_updated" '+(r.status==="question_updated"?"selected":"")+'>Question updated</option><option value="resolved" '+(r.status==="resolved"?"selected":"")+'>Resolved</option><option value="rejected" '+(r.status==="rejected"?"selected":"")+'>Rejected</option></select><input name="admin_notes" placeholder="Admin notes" value="'+adminEscape(r.admin_notes)+'"><button class="btn btn-secondary btn-sm" type="submit">Save report</button></div></form>').join("")}
+let allAttempts = [], historyFilter = "all", studentProgress = null;
 
-function paymentCardHtml(p){
-  const id=adminEscape(p.id);
-  const who=adminEscape(p.user_email||p.user_id);
-  const when=adminEscape(new Date(p.created_at).toLocaleString());
-  return '<div class="admin-report" data-id="'+id+'"><div class="admin-report-top"><div><strong>'+who+'</strong></div><span class="admin-report-date">'+when+'</span></div>'
-    +'<p class="admin-report-question">M-Pesa code: <strong>'+adminEscape(p.mpesa_code)+'</strong> &middot; Amount: KSh '+adminEscape(p.amount)+'</p>'
-    +'<div class="admin-report-controls">'
-    +'<button type="button" class="btn btn-primary btn-sm admin-payment-approve" data-id="'+id+'">Approve</button>'
-    +'<button type="button" class="btn btn-secondary btn-sm admin-payment-reject" data-id="'+id+'">Reject</button>'
-    +'</div></div>';
+function formatRelativeTime(value) {
+  const mins = Math.round((Date.now() - new Date(value)) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1440) return `${Math.round(mins / 60)}h ago`;
+  return new Date(value).toLocaleDateString();
 }
-function renderAdminPayments(){
-  if(!adminState.payments.length){adminEl.payments.innerHTML='<div class="admin-empty">No pending payments.</div>';return}
-  adminEl.payments.innerHTML=adminState.payments.map(paymentCardHtml).join("");
+function sectionOf(attempt) { return attempt.section || attempt.questions?.section || "mcq"; }
+function stats(list) {
+  const correct = list.filter((x) => x.correct).length;
+  return { answered: list.length, correct, incorrect: list.length - correct, accuracy: list.length ? `${Math.round(correct / list.length * 100)}%` : "—" };
 }
-async function loadAdminPayments(){
-  adminEl.paymentsStatus.textContent="Loading payments…";
-  try{
-    const res=await apiAdminPayments({action:"list",status:"pending"});
-    adminState.payments=res.payments||[];
-    adminEl.pendingPayments.textContent=adminState.payments.length;
-    adminEl.paymentsStatus.textContent="";
-    renderAdminPayments();
-  }catch(e){
-    adminEl.paymentsStatus.textContent=e.message||"Could not load payments.";
-    adminEl.payments.innerHTML='<div class="admin-empty admin-error">Payments unavailable.</div>';
+function buildProgressCards() {
+  const grid = document.querySelector(".results-stat-grid");
+  if (!grid) return;
+  grid.querySelectorAll(".progress-section-stat").forEach((node) => node.remove());
+  grid.insertAdjacentHTML("beforeend", ["mcq", "truefalse"].map((section) => {
+    const label = section === "mcq" ? "SECTION A · MULTIPLE CHOICE" : "SECTION B · TRUE / FALSE";
+    const filtered = allAttempts.filter((x) => sectionOf(x) === section);
+    const source = section === "mcq"
+      ? { answered: Number(studentProgress?.section_a_answered ?? filtered.length), correct: Number(studentProgress?.section_a_correct ?? filtered.filter((x) => x.correct).length) }
+      : { answered: Number(studentProgress?.section_b_answered ?? filtered.length), correct: Number(studentProgress?.section_b_correct ?? filtered.filter((x) => x.correct).length) };
+    const s = { ...source, incorrect: source.answered - source.correct, accuracy: source.answered ? Math.round(source.correct / source.answered * 100) + "%" : "—" };
+    return `<div class="result-stat progress-section-stat"><span class="section-tag">${label}</span><strong>${s.answered}</strong><span>Answered</span><strong>${s.correct}</strong><span>Correct</span><strong>${s.incorrect}</strong><span>Incorrect</span><strong>${s.accuracy}</strong><span>Accuracy</span><strong>${s.correct}/${s.answered}</strong><span>Score</span></div>`;
+  }).join(""));
+}
+function buildOverallStats() {
+  const summary = studentProgress ? { answered: Number(studentProgress.section_a_answered || 0) + Number(studentProgress.section_b_answered || 0), correct: Number(studentProgress.section_a_correct || 0) + Number(studentProgress.section_b_correct || 0) } : stats(allAttempts);
+  summary.incorrect = summary.answered - summary.correct;
+  summary.accuracy = summary.answered ? Math.round(summary.correct / summary.answered * 100) + "%" : "—";
+  document.getElementById("statAnswered").textContent = summary.answered;
+  document.getElementById("statCorrect").textContent = summary.correct;
+  const score = document.getElementById("statScore");
+  if (score) score.textContent = `${summary.correct}/${summary.answered}`;
+  document.getElementById("statAccuracy").textContent = summary.accuracy;
+}
+function reviewAttempt(attempt) {
+  const q = attempt.questions;
+  const modal = document.createElement("div");
+  modal.className = "review-modal";
+  modal.innerHTML = `<section class="card review-card"><button class="back-button review-close">← Back to history</button><span class="section-tag">${sectionOf(attempt) === "truefalse" ? "SECTION B · TRUE / FALSE" : "SECTION A · MCQ"}</span><h2></h2><p class="review-result"></p><div class="review-answers"></div><div class="feedback"><div class="feedback-title"><span>Explanation</span></div><p></p></div></section>`;
+  modal.querySelector("h2").textContent = q?.question_text || "This question is no longer available.";
+  modal.querySelector(".review-result").textContent = q ? (attempt.correct ? "Correct ✓" : "Incorrect") : "This question is no longer available.";
+  if (q) {
+    const choices = q.choices || q.statements || {};
+    const list = Array.isArray(choices) ? choices.map((c, i) => [c.key || String.fromCharCode(65 + i), c.text || c.statement || c]) : Object.entries(choices);
+    modal.querySelector(".review-answers").innerHTML = list.map(([key, text]) => `<div class="review-answer"><b>${key}</b><span></span></div>`).join("");
+    list.forEach(([key, text], i) => { modal.querySelectorAll(".review-answer span")[i].textContent = text; });
+    modal.querySelector(".feedback p").textContent = q.explanation || "No explanation was provided for this question.";
+  } else modal.querySelector(".feedback").hidden = true;
+  modal.querySelector(".review-close").onclick = () => modal.remove();
+  document.body.appendChild(modal);
+}
+function renderHistory() {
+  const list = allAttempts.filter((a) => historyFilter === "all" || sectionOf(a) === historyFilter);
+  resultsEl.historyList.innerHTML = list.map((a) => {
+    const section = sectionOf(a);
+    const topic = a.questions?.topic || a.questions?.condition || "General";
+    const label = section === "truefalse" ? "SECTION B" : "SECTION A";
+    return `<button class="history-item history-item-button" type="button"><span class="history-dot ${a.correct ? "is-correct" : ""}"></span><span class="history-text"><b>${label} · ${topic}</b><small>${a.correct ? "Correct" : "Incorrect"}</small></span><span class="history-time">${formatRelativeTime(a.answered_at)}</span></button>`;
+  }).join("");
+  [...resultsEl.historyList.children].forEach((node, i) => node.onclick = () => reviewAttempt(list[i]));
+  resultsEl.historyEmpty.hidden = list.length > 0;
+}
+async function loadResults() {
+  const [attemptResult, progressResult] = await Promise.allSettled([apiGetAttemptHistory(), apiGetStudentProgress()]);
+  allAttempts = attemptResult.status === "fulfilled" ? attemptResult.value : [];
+  studentProgress = progressResult.status === "fulfilled" ? progressResult.value : null;
+  buildOverallStats();
+  buildProgressCards();
+  const heading = document.querySelector(".history-panel .section-heading");
+  if (heading && !heading.querySelector(".history-filters")) {
+    const filters = document.createElement("div"); filters.className = "history-filters";
+    filters.innerHTML = '<button class="btn btn-secondary btn-sm is-active" data-history-filter="all">All</button><button class="btn btn-secondary btn-sm" data-history-filter="mcq">Section A</button><button class="btn btn-secondary btn-sm" data-history-filter="truefalse">Section B</button>';
+    heading.appendChild(filters);
+    filters.querySelectorAll("[data-history-filter]").forEach((button) => button.onclick = () => { historyFilter = button.dataset.historyFilter; filters.querySelectorAll("button").forEach((b) => b.classList.toggle("is-active", b === button)); renderHistory(); });
   }
+  renderHistory();
 }
-adminEl.payments?.addEventListener("click",async e=>{
-  const approveBtn=e.target.closest(".admin-payment-approve");
-  const rejectBtn=e.target.closest(".admin-payment-reject");
-  const btn=approveBtn||rejectBtn;
-  if(!btn)return;
-  const paymentId=btn.dataset.id;
-  let rejection_reason=null;
-  if(rejectBtn){
-    rejection_reason=prompt("Reason for rejecting this payment (optional):")||null;
-  }
-  btn.disabled=true;
-  try{
-    await apiAdminPayments({action:"decide",payment_id:paymentId,decision:approveBtn?"approved":"rejected",rejection_reason});
-    await loadAdminPayments();
-  }catch(err){
-    adminEl.paymentsStatus.textContent=err.message||"Could not update payment.";
-    btn.disabled=false;
-  }
-});
-document.getElementById("adminRefreshPaymentsBtn")?.addEventListener("click",loadAdminPayments);
-
-async async function refreshAdminAccess(){try{await apiAdminQuestions({action:"list",limit:1});if(adminEl.nav)adminEl.nav.hidden=false;const menuAdmin=document.getElementById("menuAdminBtn");if(menuAdmin)menuAdmin.hidden=false}catch(_){if(adminEl.nav)adminEl.nav.hidden=true;const menuAdmin=document.getElementById("menuAdminBtn");if(menuAdmin)menuAdmin.hidden=true}}
-async function loadAdmin(){adminEl.questionStatus.textContent="Loading questions and reports…";try{const [q,r]=await Promise.all([apiAdminQuestions({action:"list",limit:500}),apiAdminReports({action:"list"})]);adminState.questions=q.questions||[];adminState.reports=r.reports||[];adminEl.count.textContent=adminState.questions.length;adminEl.reportCount.textContent=adminState.reports.length;adminEl.pending.textContent=r.pending_reports??adminState.reports.filter(x=>x.status==="pending").length;adminEl.questionStatus.textContent="";renderAdminQuestions(true);renderAdminReports();if(adminEl.nav)adminEl.nav.hidden=false}catch(e){adminEl.questionStatus.textContent=e.message||"Could not load admin data.";adminEl.list.innerHTML='<div class="admin-empty admin-error">Admin access is unavailable.</div>';}
-  loadAdminPayments();
-}
-adminEl.search?.addEventListener("input",()=>renderAdminQuestions(true));adminEl.section?.addEventListener("change",()=>renderAdminQuestions(true));document.getElementById("adminLoadQuestionsBtn")?.addEventListener("click",loadAdmin);document.getElementById("adminRefreshBtn")?.addEventListener("click",loadAdmin);adminEl.list?.addEventListener("submit",async e=>{if(!e.target.matches(".admin-question-form"))return;e.preventDefault();const form=e.target,button=form.querySelector("button[type=submit]"),status=form.querySelector(".admin-save-status");button.disabled=true;status.textContent="Saving…";const data=new FormData(form);try{await apiAdminQuestions({action:"update_question",question_id:form.dataset.id,question_text:data.get("question_text"),choices:data.get("choices"),correct_answer:data.get("correct_answer"),explanation:data.get("explanation"),section:data.get("section"),question_type:data.get("question_type"),subject:data.get("subject"),topic:data.get("topic"),unit:data.get("unit"),difficulty:data.get("difficulty"),is_free:data.get("is_free")==="on"});status.textContent="Saved";status.className="admin-save-status is-success"}catch(e){status.textContent=e.message||"Save failed";status.className="admin-save-status is-error"}finally{button.disabled=false}});adminEl.reports?.addEventListener("submit",async e=>{if(!e.target.matches(".admin-report"))return;e.preventDefault();const form=e.target,button=form.querySelector("button[type=submit]"),data=new FormData(form);button.disabled=true;try{await apiAdminReports({action:"update",report_id:form.dataset.id,status:data.get("status"),admin_notes:data.get("admin_notes")});adminEl.reportStatus.textContent="Report updated.";await loadAdmin()}catch(err){adminEl.reportStatus.textContent=err.message||"Could not update report."}finally{button.disabled=false}});
