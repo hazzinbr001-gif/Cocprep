@@ -63,7 +63,7 @@ async function apiSubmitAnswer({ questionId, selectedChoice, section }) {
 async function apiGetAttemptHistory() {
   const { data, error } = await supabaseClient
     .from("question_attempts")
-    .select("id, question_id, selected_answer, correct, answered_at, section")
+    .select("id, question_id, selected_answer, correct, answered_at, section, questions(id, question_text, choices, statements, explanation, correct_answer, section, question_type, topic, condition, unit)")
     .order("answered_at", { ascending: false })
     .limit(100);
 
@@ -102,8 +102,6 @@ async function apiSubmitPaymentCode(mpesaCode) {
  * Checks whether the current user has an active full_access entitlement.
  * Used to show "pending approval" vs "unlocked" state on the paywall.
  */
-let entitlementFallbackUsed = false;
-
 async function apiCheckEntitlement() {
   const { data: sessionData } = await supabaseClient.auth.getSession();
   const userId = sessionData?.session?.user?.id;
@@ -120,17 +118,9 @@ async function apiCheckEntitlement() {
     .order("expires_at", { ascending: false, nullsFirst: true })
     .limit(20);
 
-  // The edge function is the real access boundary. If the browser's direct
-  // table read is unavailable because of RLS or a temporary Supabase error,
-  // let the next-question request make the authoritative decision once.
-  // This prevents a paid user from being trapped on the paywall while still
-  // falling back to the paywall if the server itself rejects access.
-  if (error) {
-    if (entitlementFallbackUsed) return false;
-    entitlementFallbackUsed = true;
-    return true;
-  }
-  entitlementFallbackUsed = false;
+  // Never infer entitlement from a failed read. A checkout visit, a local
+  // flag, or a transient database error is not proof of payment.
+  if (error) return false;
   return (data ?? []).some((entitlement) =>
     !entitlement.expires_at || new Date(entitlement.expires_at) >= new Date()
   );
