@@ -200,3 +200,60 @@ async function apiGetQuestionTopics(section = "mcq") {
   if (!res.ok) throw new Error(body.error || ("Request failed (" + res.status + ")"));
   return body.topics || [];
 }
+
+async function apiGetQuestionComments(questionId, page = 0, pageSize = 10) {
+  const from = page * pageSize;
+  const { data, error } = await supabaseClient
+    .from("comments")
+    .select("id, question_id, user_id, body, content, parent_comment_id, created_at, updated_at")
+    .eq("question_id", questionId)
+    .eq("is_deleted", false)
+    .order("created_at", { ascending: true })
+    .range(from, from + pageSize - 1);
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function apiCreateQuestionComment(questionId, content, parentCommentId = null) {
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  const userId = sessionData?.session?.user?.id;
+  if (!userId) throw new Error("Sign in to join the discussion.");
+  if (!(await apiCheckEntitlement())) throw new Error("Premium access is required to join the discussion.");
+  const { data, error } = await supabaseClient.from("comments").insert({
+    question_id: questionId,
+    user_id: userId,
+    body: content,
+    content,
+    parent_comment_id: parentCommentId,
+  }).select("id, question_id, user_id, body, content, parent_comment_id, created_at, updated_at").single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+async function apiToggleCommentLike(commentId) {
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  const userId = sessionData?.session?.user?.id;
+  if (!userId) throw new Error("Sign in to like a comment.");
+  const { data: existing, error: readError } = await supabaseClient
+    .from("comment_likes").select("id").eq("comment_id", commentId).eq("user_id", userId).maybeSingle();
+  if (readError) throw new Error(readError.message);
+  if (existing) {
+    const { error } = await supabaseClient.from("comment_likes").delete().eq("id", existing.id);
+    if (error) throw new Error(error.message);
+    return { liked: false };
+  }
+  const { error } = await supabaseClient.from("comment_likes").insert({ comment_id: commentId, user_id: userId });
+  if (error) throw new Error(error.message);
+  return { liked: true };
+}
+
+async function apiReportComment(commentId, reason, details = "") {
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  const userId = sessionData?.session?.user?.id;
+  if (!userId) throw new Error("Sign in to report a comment.");
+  const { error } = await supabaseClient.from("comment_reports").insert({
+    comment_id: commentId, user_id: userId, reason, details
+  });
+  if (error) throw new Error(error.message);
+  return { submitted: true };
+}
