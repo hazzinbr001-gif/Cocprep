@@ -52,7 +52,7 @@ function reviewAttempt(attempt) {
     const list = Array.isArray(choices) ? choices.map((c, i) => [c.key || String.fromCharCode(65 + i), c.text || c.statement || c]) : Object.entries(choices);
     modal.querySelector(".review-answers").innerHTML = list.map(([key, text]) => `<div class="review-answer"><b>${key}</b><span></span></div>`).join("");
     list.forEach(([key, text], i) => { modal.querySelectorAll(".review-answer span")[i].textContent = text; });
-    modal.querySelector(".feedback p").textContent = q.explanation || "No explanation was provided for this question.";
+    modal.querySelector(".feedback p").innerHTML = renderExplanationHtml(q.explanation) || "No explanation was provided for this question.";
   } else modal.querySelector(".feedback").hidden = true;
   modal.querySelector(".review-close").onclick = () => modal.remove();
   document.body.appendChild(modal);
