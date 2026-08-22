@@ -2,7 +2,7 @@ const resultsEl = {
   historyList: document.getElementById("historyList"),
   historyEmpty: document.getElementById("historyEmpty"),
 };
-let allAttempts = [], historyFilter = "all";
+let allAttempts = [], historyFilter = "all", studentProgress = null;
 
 function formatRelativeTime(value) {
   const mins = Math.round((Date.now() - new Date(value)) / 60000);
@@ -22,14 +22,22 @@ function buildProgressCards() {
   grid.querySelectorAll(".progress-section-stat").forEach((node) => node.remove());
   grid.insertAdjacentHTML("beforeend", ["mcq", "truefalse"].map((section) => {
     const label = section === "mcq" ? "SECTION A · MULTIPLE CHOICE" : "SECTION B · TRUE / FALSE";
-    const s = stats(allAttempts.filter((x) => sectionOf(x) === section));
-    return `<div class="result-stat progress-section-stat"><span class="section-tag">${label}</span><strong>${s.answered}</strong><span>Answered</span><strong>${s.correct}</strong><span>Correct</span><strong>${s.incorrect}</strong><span>Incorrect</span><strong>${s.accuracy}</strong><span>Accuracy</span></div>`;
+    const filtered = allAttempts.filter((x) => sectionOf(x) === section);
+    const source = section === "mcq"
+      ? { answered: Number(studentProgress?.section_a_answered ?? filtered.length), correct: Number(studentProgress?.section_a_correct ?? filtered.filter((x) => x.correct).length) }
+      : { answered: Number(studentProgress?.section_b_answered ?? filtered.length), correct: Number(studentProgress?.section_b_correct ?? filtered.filter((x) => x.correct).length) };
+    const s = { ...source, incorrect: source.answered - source.correct, accuracy: source.answered ? Math.round(source.correct / source.answered * 100) + "%" : "—" };
+    return `<div class="result-stat progress-section-stat"><span class="section-tag">${label}</span><strong>${s.answered}</strong><span>Answered</span><strong>${s.correct}</strong><span>Correct</span><strong>${s.incorrect}</strong><span>Incorrect</span><strong>${s.accuracy}</strong><span>Accuracy</span><strong>${s.correct}/${s.answered}</strong><span>Score</span></div>`;
   }).join(""));
 }
 function buildOverallStats() {
-  const summary = stats(allAttempts);
+  const summary = studentProgress ? { answered: Number(studentProgress.section_a_answered || 0) + Number(studentProgress.section_b_answered || 0), correct: Number(studentProgress.section_a_correct || 0) + Number(studentProgress.section_b_correct || 0) } : stats(allAttempts);
+  summary.incorrect = summary.answered - summary.correct;
+  summary.accuracy = summary.answered ? Math.round(summary.correct / summary.answered * 100) + "%" : "—";
   document.getElementById("statAnswered").textContent = summary.answered;
   document.getElementById("statCorrect").textContent = summary.correct;
+  const score = document.getElementById("statScore");
+  if (score) score.textContent = `${summary.correct}/${summary.answered}`;
   document.getElementById("statAccuracy").textContent = summary.accuracy;
 }
 function reviewAttempt(attempt) {
@@ -62,7 +70,7 @@ function renderHistory() {
 }
 async function loadResults() {
   try {
-    allAttempts = await apiGetAttemptHistory();
+    [allAttempts, studentProgress] = await Promise.all([apiGetAttemptHistory(), apiGetStudentProgress()]);
     buildOverallStats();
     buildProgressCards();
     const heading = document.querySelector(".history-panel .section-heading");
