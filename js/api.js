@@ -3,6 +3,45 @@
 // file); this file only consumes it, so no client is redeclared here.
 
 /**
+ * Cleans and renders explanation text stored in the database.
+ * Some rows have a leaked JSON wrapper (e.g. the whole string is
+ * `"explanation": "**Correct answer...` instead of just the text) and/or
+ * literal "\n" characters instead of real line breaks. This strips that
+ * wrapper if present, then renders basic markdown (**bold**, line breaks,
+ * "- " bullet lists) to safe HTML for use with innerHTML.
+ */
+function renderExplanationHtml(raw) {
+  if (!raw) return "";
+  let text = String(raw);
+
+  // Strip a leaked `"explanation": "..."` (or similar `"key": "..."`) wrapper.
+  const wrapperMatch = text.match(/^\s*"[^"]+"\s*:\s*"([\s\S]*)"\s*$/);
+  if (wrapperMatch) text = wrapperMatch[1];
+
+  // Un-escape literal backslash sequences that should be real characters.
+  text = text.replace(/\\n/g, "\n").replace(/\\"/g, '"');
+
+  // Escape HTML special characters before building markup.
+  const escapeHtml = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  text = escapeHtml(text);
+
+  // Bold: **text**
+  text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
+  // Turn "- " lines into a <ul>, leave other lines as paragraphs.
+  const blocks = text.split(/\n\s*\n/).map((block) => block.trim()).filter(Boolean);
+  const html = blocks.map((block) => {
+    const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (lines.every((l) => l.startsWith("- "))) {
+      return "<ul>" + lines.map((l) => `<li>${l.slice(2)}</li>`).join("") + "</ul>";
+    }
+    return `<p>${lines.join("<br>")}</p>`;
+  }).join("");
+
+  return html;
+}
+
+/**
  * Calls the get-next-question edge function.
  * Requires an active session — throws if none.
  */
