@@ -23,3 +23,78 @@ const reportButton=document.createElement("button");reportButton.className="flag
 async function refreshPaywallState(){if(await apiCheckEntitlement()){loadNextQuestion();return}const pending=await apiGetPendingPayment();el.paywallPending.hidden=!pending;el.paywallPaymentForm.hidden=!!pending}
 document.getElementById("applyTopicFilterBtn")?.addEventListener("click",()=>startExam(activeSection));document.getElementById("topicFilter")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();startExam(activeSection)}});el.submitAnswerBtn.onclick=submitAnswer;el.nextQuestionBtn.onclick=nextQuestion;el.retryBtn.onclick=loadNextQuestion;el.prevQuestionBtn.onclick=()=>{if(questionIndex>0){questionIndex--;renderQuestion(sessionQuestions[questionIndex])}};el.flagBtn.onclick=toggleFlag;el.submitExamBtn.onclick=()=>{if(confirm("Finish this session and return to your progress?")){window.dispatchEvent(new CustomEvent("exam-finished"));showScreen("results")}};document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{mode=b.dataset.mode;document.querySelectorAll("[data-mode]").forEach(x=>x.classList.toggle("is-active",x===b));el.timer.hidden=mode!=="exam";if(mode==="exam")startTimer()});el.submitPaymentBtn.onclick=async()=>{const code=el.mpesaCodeInput.value.trim();if(!code){el.paymentStatus.textContent="Enter the M-Pesa confirmation code first.";el.paymentStatus.className="payment-status is-error";return}el.submitPaymentBtn.disabled=true;try{const r=await apiSubmitPaymentCode(code);el.paymentStatus.textContent=r.message||"Submitted for review.";el.paywallPending.hidden=false;el.paywallPaymentForm.hidden=true}catch(e){el.paymentStatus.textContent=e.message;el.paymentStatus.className="payment-status is-error"}finally{el.submitPaymentBtn.disabled=false}};el.refreshEntitlementBtn.onclick=refreshPaywallState;
 function startTimer(){clearInterval(timerId);seconds=1800;timerId=setInterval(()=>{seconds--;el.timer.querySelector("b").textContent=`${String(Math.floor(seconds/60)).padStart(2,"0")}:${String(seconds%60).padStart(2,"0")}`;if(seconds<=0){clearInterval(timerId);alert("Time is up. Your session will be submitted.");showScreen("results")}},1000)}
+
+let discussionPage = 0, discussionItems = [];
+const baseRenderQuestion = renderQuestion;
+renderQuestion = function (question) {
+  baseRenderQuestion(question);
+  renderDiscussion();
+};
+function discussionText(comment) { return comment.content || comment.body || ""; }
+function renderDiscussion() {
+  if (!currentQuestion || !el.questionCard) return;
+  let panel = document.getElementById("questionDiscussion");
+  if (!panel) {
+    panel = document.createElement("section");
+    panel.id = "questionDiscussion";
+    panel.className = "discussion-panel";
+    el.questionCard.insertBefore(panel, el.questionCard.querySelector(".question-actions"));
+  }
+  panel.innerHTML = `<div class="discussion-heading"><h3>💬 Discussion <span id="discussionCount"></span></h3><p>Community comments are for learning and are not official medical advice.</p></div><div id="discussionList" class="discussion-list"><p class="muted">Loading discussion…</p></div><button type="button" class="btn btn-secondary btn-sm" id="discussionMore" hidden>Load more</button><div id="discussionComposer"></div>`;
+  discussionPage = 0; discussionItems = [];
+  loadDiscussionPage();
+}
+async function loadDiscussionPage() {
+  const list = document.getElementById("discussionList"), more = document.getElementById("discussionMore");
+  if (!list || !currentQuestion) return;
+  try {
+    const rows = await apiGetQuestionComments(currentQuestion.id, discussionPage);
+    discussionItems = discussionItems.concat(rows);
+    document.getElementById("discussionCount").textContent = discussionItems.length ? `· ${discussionItems.length}${rows.length === 10 ? "+" : ""}` : "";
+    list.innerHTML = "";
+    const byParent = (parent) => discussionItems.filter((item) => (item.parent_comment_id || null) === parent);
+    const draw = (items, depth = 0) => items.forEach((comment) => {
+      const item = document.createElement("article");
+      item.className = `discussion-comment depth-${Math.min(depth, 2)}`;
+      item.innerHTML = `<div class="discussion-comment-meta"><strong>Student</strong><time>${formatRelativeTime(comment.created_at)}</time></div><p class="discussion-comment-body"></p><div class="discussion-comment-actions"><button type="button" data-action="like">👍 Like</button><button type="button" data-action="reply">Reply</button><button type="button" data-action="report">Report</button></div><div class="discussion-reply"></div>`;
+      item.querySelector(".discussion-comment-body").textContent = discussionText(comment);
+      item.querySelector('[data-action="like"]').onclick = async () => { try { await apiToggleCommentLike(comment.id); } catch (e) { alert(e.message); } };
+      item.querySelector('[data-action="reply"]').onclick = () => {
+        const reply = prompt("Write a helpful reply:");
+        if (reply?.trim()) postDiscussionComment(reply.trim(), comment.id);
+      };
+      item.querySelector('[data-action="report"]').onclick = async () => {
+        const reason = prompt("Why are you reporting this comment?");
+        if (reason?.trim()) try { await apiReportComment(comment.id, reason.trim()); alert("Report submitted."); } catch (e) { alert(e.message); }
+      };
+      list.appendChild(item);
+      draw(byParent(comment.id), depth + 1);
+    });
+    draw(byParent(null));
+    more.hidden = rows.length < 10;
+    more.onclick = () => { discussionPage += 1; loadDiscussionPage(); };
+    renderDiscussionComposer();
+  } catch (error) {
+    list.innerHTML = `<p class="muted">${error.message || "Discussion unavailable."}</p>`;
+    renderDiscussionComposer();
+  }
+}
+async function renderDiscussionComposer() {
+  const target = document.getElementById("discussionComposer");
+  if (!target) return;
+  const paid = await apiCheckEntitlement();
+  target.innerHTML = paid
+    ? `<form class="discussion-form"><textarea required maxlength="1000" rows="3" placeholder="Share your reasoning, ask a question, or add a useful memory tip…"></textarea><button class="btn btn-primary btn-sm" type="submit">Post comment</button></form>`
+    : `<p class="discussion-locked">Premium access is required to post or reply. You can still read the discussion.</p>`;
+  target.querySelector("form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const textarea = event.currentTarget.querySelector("textarea");
+    try { await postDiscussionComment(textarea.value.trim()); textarea.value = ""; } catch (error) { alert(error.message); }
+  });
+}
+async function postDiscussionComment(content, parentId = null) {
+  if (!content) return;
+  await apiCreateQuestionComment(currentQuestion.id, content, parentId);
+  discussionPage = 0; discussionItems = [];
+  await loadDiscussionPage();
+}
