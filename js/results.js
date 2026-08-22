@@ -68,31 +68,7 @@ function renderHistory() {
   [...resultsEl.historyList.children].forEach((node, i) => node.onclick = () => reviewAttempt(list[i]));
   resultsEl.historyEmpty.hidden = list.length > 0;
 }
-async function loadResults() {
-  try {
-    [allAttempts, studentProgress] = await Promise.all([apiGetAttemptHistory(), apiGetStudentProgress()]);
-    buildOverallStats();
-    buildProgressCards();
-    const heading = document.querySelector(".history-panel .section-heading");
-    if (heading && !heading.querySelector(".history-filters")) {
-      const filters = document.createElement("div");
-      filters.className = "history-filters";
-      filters.innerHTML = '<button class="btn btn-secondary btn-sm is-active" data-history-filter="all">All</button><button class="btn btn-secondary btn-sm" data-history-filter="mcq">Section A</button><button class="btn btn-secondary btn-sm" data-history-filter="truefalse">Section B</button>';
-      heading.appendChild(filters);
-      filters.querySelectorAll("[data-history-filter]").forEach((button) => button.onclick = () => {
-        historyFilter = button.dataset.historyFilter;
-        filters.querySelectorAll("button").forEach((b) => b.classList.toggle("is-active", b === button));
-        renderHistory();
-      });
-    }
-    renderHistory();
-  } catch (e) {
-    resultsEl.historyEmpty.hidden = false;
-    resultsEl.historyEmpty.querySelector("strong").textContent = "Couldn't load your results";
-    resultsEl.historyEmpty.querySelector("p").textContent = e.message;
-  }
-}
-document.querySelectorAll("[data-history-filter]").forEach((button) => button.onclick = () => {
+async function loadResults() {\n  const [attemptResult, progressResult] = await Promise.allSettled([apiGetAttemptHistory(), apiGetStudentProgress()]);\n  allAttempts = attemptResult.status === "fulfilled" ? attemptResult.value : [];\n  studentProgress = progressResult.status === "fulfilled" ? progressResult.value : null;\n  buildOverallStats();\n  buildProgressCards();\n  const heading = document.querySelector(".history-panel .section-heading");\n  if (heading && !heading.querySelector(".history-filters")) {\n    const filters = document.createElement("div"); filters.className = "history-filters";\n    filters.innerHTML = '<button class="btn btn-secondary btn-sm is-active" data-history-filter="all">All</button><button class="btn btn-secondary btn-sm" data-history-filter="mcq">Section A</button><button class="btn btn-secondary btn-sm" data-history-filter="truefalse">Section B</button>';\n    heading.appendChild(filters);\n    filters.querySelectorAll("[data-history-filter]").forEach((button) => button.onclick = () => { historyFilter = button.dataset.historyFilter; filters.querySelectorAll("button").forEach((b) => b.classList.toggle("is-active", b === button)); renderHistory(); });\n  }\n  renderHistory();\n}\ndocument.querySelectorAll("[data-history-filter]").forEach((button) => button.onclick = () => {
   historyFilter = button.dataset.historyFilter;
   document.querySelectorAll("[data-history-filter]").forEach((b) => b.classList.toggle("is-active", b === button));
   renderHistory();
