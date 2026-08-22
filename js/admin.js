@@ -8,9 +8,61 @@ const adminEl={
 };
 function adminEscape(value){return String(value??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));}
 function adminChoiceJson(value){try{return JSON.stringify(typeof value==="string"?JSON.parse(value):value??{},null,2)}catch(_){return String(value??"")}}
+
+/**
+ * Reformats choices + correct_answer when a question moves between
+ * MCQ and True/False (either via the Swap button or the Section select).
+ * MCQ shape:       choices = [{"key":"A","text":"..."}], correct_answer = "A"
+ * True/False shape: choices = [{"key":"TRUE","text":"True"},{"key":"FALSE","text":"False"}], correct_answer = "TRUE" | "FALSE"
+ * Existing option/statement text is preserved where possible; only the
+ * key labels and default correct_answer are reshaped.
+ */
+function adminReshapeChoices(rawChoices, correctAnswer, targetType){
+  let choices;
+  try{ choices = typeof rawChoices==="string" ? JSON.parse(rawChoices) : rawChoices; }catch(_){ choices = null; }
+  if(!Array.isArray(choices)) choices = [];
+
+  if(targetType==="truefalse"){
+    // Keep the question's own statement text as choice A's text if present,
+    // otherwise fall back to generic True/False options.
+    const firstText = choices[0]?.text || choices[0]?.statement || "";
+    const newChoices = [{key:"TRUE",text:"True"},{key:"FALSE",text:"False"}];
+    const newCorrect = (correctAnswer==="TRUE"||correctAnswer==="FALSE") ? correctAnswer : "TRUE";
+    return { choices: newChoices, correct_answer: newCorrect, _note: firstText ? "" : "" };
+  }
+
+  // targetType === "mcq"
+  if(choices.length && choices[0]?.key && !["TRUE","FALSE"].includes(String(choices[0].key).toUpperCase())){
+    // Already looks like lettered MCQ choices — leave as-is.
+    return { choices, correct_answer: correctAnswer, _note: "" };
+  }
+  // Coming from True/False shape or empty: seed with 4 empty lettered options.
+  const letters=["A","B","C","D"];
+  const newChoices = letters.map((k,i)=>({key:k, text: choices[i]?.text || ""}));
+  const newCorrect = letters.includes(correctAnswer) ? correctAnswer : "A";
+  return { choices: newChoices, correct_answer: newCorrect, _note: "Fill in the option text for each choice." };
+}
+
+/** Checks whether choices/correct_answer actually match the selected type, for a save-time warning. */
+function adminChoicesMismatch(rawChoices, correctAnswer, questionType){
+  let choices;
+  try{ choices = typeof rawChoices==="string" ? JSON.parse(rawChoices) : rawChoices; }catch(_){ return "Choices is not valid JSON."; }
+  if(!Array.isArray(choices) || !choices.length) return "Choices must be a non-empty array.";
+  const keys = choices.map(c=>String(c.key||"").toUpperCase());
+  if(questionType==="truefalse"){
+    const isTF = keys.length===2 && keys.includes("TRUE") && keys.includes("FALSE");
+    if(!isTF) return "Question type is True/False but choices aren't shaped as TRUE/FALSE.";
+    if(!["TRUE","FALSE"].includes(String(correctAnswer||"").toUpperCase())) return "Correct answer should be TRUE or FALSE.";
+  } else {
+    if(keys.includes("TRUE")||keys.includes("FALSE")) return "Question type is MCQ but choices look like True/False.";
+    if(!keys.includes(String(correctAnswer||"").toUpperCase())) return "Correct answer doesn't match any choice key.";
+  }
+  return "";
+}
+
 function adminQuestionCardHtml(q){
   const id=adminEscape(q.id);
-  return '<details class="admin-question" data-id="'+id+'"><summary><span class="admin-question-section '+(q.section==="truefalse"?"is-premium":"")+'">'+(q.section==="truefalse"?"SECTION B":"SECTION A")+'</span><span class="admin-question-preview">'+adminEscape(q.question_text)+'</span><span class="admin-edit-label">Edit</span></summary><form class="admin-question-form" data-id="'+id+'"><div class="admin-form-grid"><label class="admin-field admin-field-wide"><span>Question wording</span><textarea name="question_text" rows="3" required>'+adminEscape(q.question_text)+'</textarea></label><label class="admin-field admin-field-wide"><span>Choices JSON</span><textarea name="choices" rows="5" required>'+adminEscape(adminChoiceJson(q.choices))+'</textarea><small>Example: [{"key":"A","text":"Option one"}]</small></label><label class="admin-field"><span>Correct answer</span><input name="correct_answer" value="'+adminEscape(q.correct_answer)+'" required></label><label class="admin-field"><span>Section</span><select name="section"><option value="mcq" '+(q.section==="mcq"?"selected":"")+'>Section A · MCQ</option><option value="truefalse" '+(q.section==="truefalse"?"selected":"")+'>Section B · True / False</option></select></label><label class="admin-field"><span>Question type</span><select name="question_type"><option value="mcq" '+(q.question_type==="mcq"?"selected":"")+'>MCQ</option><option value="truefalse" '+(q.question_type==="truefalse"?"selected":"")+'>True / False</option></select></label><label class="admin-field"><span>Subject</span><input name="subject" value="'+adminEscape(q.subject)+'"></label><label class="admin-field"><span>Topic</span><input name="topic" value="'+adminEscape(q.topic)+'"></label><label class="admin-field"><span>Unit</span><input name="unit" value="'+adminEscape(q.unit)+'"></label><label class="admin-field"><span>Difficulty</span><input name="difficulty" value="'+adminEscape(q.difficulty)+'"></label><label class="admin-field admin-field-wide"><span>Explanation</span><textarea name="explanation" rows="4">'+adminEscape(q.explanation)+'</textarea></label><label class="admin-free-toggle"><input type="checkbox" name="is_free" '+(q.is_free?"checked":"")+'> Available in Section A free pool</label></div><div class="admin-form-actions"><span class="admin-save-status"></span><button class="btn btn-primary btn-sm" type="submit">Save correction</button></div></form></details>';
+  return '<details class="admin-question" data-id="'+id+'"><summary><span class="admin-question-section '+(q.section==="truefalse"?"is-premium":"")+'">'+(q.section==="truefalse"?"SECTION B":"SECTION A")+'</span><span class="admin-question-preview">'+adminEscape(q.question_text)+'</span><span class="admin-edit-label">Edit</span></summary><form class="admin-question-form" data-id="'+id+'"><div class="admin-form-grid"><label class="admin-field admin-field-wide"><span>Question wording</span><textarea name="question_text" rows="3" required>'+adminEscape(q.question_text)+'</textarea></label><label class="admin-field admin-field-wide"><span>Choices JSON</span><textarea name="choices" rows="5" required>'+adminEscape(adminChoiceJson(q.choices))+'</textarea><small>Example: [{"key":"A","text":"Option one"}]</small></label><label class="admin-field"><span>Correct answer</span><input name="correct_answer" value="'+adminEscape(q.correct_answer)+'" required></label><label class="admin-field"><span>Section</span><select name="section"><option value="mcq" '+(q.section==="mcq"?"selected":"")+'>Section A · MCQ</option><option value="truefalse" '+(q.section==="truefalse"?"selected":"")+'>Section B · True / False</option></select></label><label class="admin-field"><span>Question type</span><select name="question_type"><option value="mcq" '+(q.question_type==="mcq"?"selected":"")+'>MCQ</option><option value="truefalse" '+(q.question_type==="truefalse"?"selected":"")+'>True / False</option></select></label><label class="admin-field admin-field-wide"><span>Swap section</span><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn btn-secondary btn-sm admin-swap-btn" data-target="mcq">Convert to MCQ</button><button type="button" class="btn btn-secondary btn-sm admin-swap-btn" data-target="truefalse">Convert to True/False</button><small class="admin-swap-hint" style="color:#73817e">Reformats choices &amp; correct answer to match. Review option text after swapping.</small></div></label><label class="admin-field"><span>Subject</span><input name="subject" value="'+adminEscape(q.subject)+'"></label><label class="admin-field"><span>Topic</span><input name="topic" value="'+adminEscape(q.topic)+'"></label><label class="admin-field"><span>Unit</span><input name="unit" value="'+adminEscape(q.unit)+'"></label><label class="admin-field"><span>Difficulty</span><input name="difficulty" value="'+adminEscape(q.difficulty)+'"></label><label class="admin-field admin-field-wide"><span>Explanation</span><textarea name="explanation" rows="4">'+adminEscape(q.explanation)+'</textarea></label><label class="admin-free-toggle"><input type="checkbox" name="is_free" '+(q.is_free?"checked":"")+'> Available in Section A free pool</label></div><div class="admin-form-actions"><span class="admin-save-status"></span><button class="btn btn-primary btn-sm" type="submit">Save correction</button></div></form></details>';
 }
 function adminFilteredQuestions(){
   const search=(adminEl.search?.value||"").toLowerCase().trim(),section=adminEl.section?.value||"";
@@ -85,4 +137,23 @@ async function refreshAdminAccess(){try{await apiAdminQuestions({action:"list",l
 async function loadAdmin(){adminEl.questionStatus.textContent="Loading questions and reports…";try{const [q,r]=await Promise.all([apiAdminQuestions({action:"list",limit:500}),apiAdminReports({action:"list"})]);adminState.questions=q.questions||[];adminState.reports=r.reports||[];adminEl.count.textContent=adminState.questions.length;adminEl.reportCount.textContent=adminState.reports.length;adminEl.pending.textContent=r.pending_reports??adminState.reports.filter(x=>x.status==="pending").length;adminEl.questionStatus.textContent="";renderAdminQuestions(true);renderAdminReports();if(adminEl.nav)adminEl.nav.hidden=false}catch(e){adminEl.questionStatus.textContent=e.message||"Could not load admin data.";adminEl.list.innerHTML='<div class="admin-empty admin-error">Admin access is unavailable.</div>';}
   loadAdminPayments();
 }
-adminEl.search?.addEventListener("input",()=>renderAdminQuestions(true));adminEl.section?.addEventListener("change",()=>renderAdminQuestions(true));document.getElementById("adminLoadQuestionsBtn")?.addEventListener("click",loadAdmin);document.getElementById("adminRefreshBtn")?.addEventListener("click",loadAdmin);adminEl.list?.addEventListener("submit",async e=>{if(!e.target.matches(".admin-question-form"))return;e.preventDefault();const form=e.target,button=form.querySelector("button[type=submit]"),status=form.querySelector(".admin-save-status");button.disabled=true;status.textContent="Saving…";const data=new FormData(form);try{await apiAdminQuestions({action:"update_question",question_id:form.dataset.id,question_text:data.get("question_text"),choices:data.get("choices"),correct_answer:data.get("correct_answer"),explanation:data.get("explanation"),section:data.get("section"),question_type:data.get("question_type"),subject:data.get("subject"),topic:data.get("topic"),unit:data.get("unit"),difficulty:data.get("difficulty"),is_free:data.get("is_free")==="on"});status.textContent="Saved";status.className="admin-save-status is-success"}catch(e){status.textContent=e.message||"Save failed";status.className="admin-save-status is-error"}finally{button.disabled=false}});adminEl.reports?.addEventListener("submit",async e=>{if(!e.target.matches(".admin-report"))return;e.preventDefault();const form=e.target,button=form.querySelector("button[type=submit]"),data=new FormData(form);button.disabled=true;try{await apiAdminReports({action:"update",report_id:form.dataset.id,status:data.get("status"),admin_notes:data.get("admin_notes")});adminEl.reportStatus.textContent="Report updated.";await loadAdmin()}catch(err){adminEl.reportStatus.textContent=err.message||"Could not update report."}finally{button.disabled=false}});
+adminEl.search?.addEventListener("input",()=>renderAdminQuestions(true));adminEl.section?.addEventListener("change",()=>renderAdminQuestions(true));document.getElementById("adminLoadQuestionsBtn")?.addEventListener("click",loadAdmin);document.getElementById("adminRefreshBtn")?.addEventListener("click",loadAdmin);
+adminEl.list?.addEventListener("click",e=>{
+  const btn=e.target.closest(".admin-swap-btn");
+  if(!btn)return;
+  const form=btn.closest("form.admin-question-form");
+  const target=btn.dataset.target; // "mcq" or "truefalse"
+  const choicesField=form.querySelector('[name="choices"]');
+  const correctField=form.querySelector('[name="correct_answer"]');
+  const sectionField=form.querySelector('[name="section"]');
+  const typeField=form.querySelector('[name="question_type"]');
+  const reshaped=adminReshapeChoices(choicesField.value,correctField.value,target);
+  choicesField.value=JSON.stringify(reshaped.choices,null,2);
+  correctField.value=reshaped.correct_answer;
+  sectionField.value=target;
+  typeField.value=target;
+  const status=form.querySelector(".admin-save-status");
+  status.textContent=target==="truefalse"?"Converted to True/False — review the option text, then save.":"Converted to MCQ — fill in each option's text, then save.";
+  status.className="admin-save-status";
+});
+adminEl.list?.addEventListener("submit",async e=>{if(!e.target.matches(".admin-question-form"))return;e.preventDefault();const form=e.target,button=form.querySelector("button[type=submit]"),status=form.querySelector(".admin-save-status");const data=new FormData(form);const mismatch=adminChoicesMismatch(data.get("choices"),data.get("correct_answer"),data.get("question_type"));if(mismatch&&!confirm(mismatch+"\n\nSave anyway?"))return;button.disabled=true;status.textContent="Saving…";try{await apiAdminQuestions({action:"update_question",question_id:form.dataset.id,question_text:data.get("question_text"),choices:data.get("choices"),correct_answer:data.get("correct_answer"),explanation:data.get("explanation"),section:data.get("section"),question_type:data.get("question_type"),subject:data.get("subject"),topic:data.get("topic"),unit:data.get("unit"),difficulty:data.get("difficulty"),is_free:data.get("is_free")==="on"});status.textContent="Saved";status.className="admin-save-status is-success"}catch(e){status.textContent=e.message||"Save failed";status.className="admin-save-status is-error"}finally{button.disabled=false}});adminEl.reports?.addEventListener("submit",async e=>{if(!e.target.matches(".admin-report"))return;e.preventDefault();const form=e.target,button=form.querySelector("button[type=submit]"),data=new FormData(form);button.disabled=true;try{await apiAdminReports({action:"update",report_id:form.dataset.id,status:data.get("status"),admin_notes:data.get("admin_notes")});adminEl.reportStatus.textContent="Report updated.";await loadAdmin()}catch(err){adminEl.reportStatus.textContent=err.message||"Could not update report."}finally{button.disabled=false}});
