@@ -115,3 +115,16 @@ html,body{max-width:100%;overflow-x:hidden}.dashboard-page:before{pointer-events
 .paywall-benefits{display:grid;gap:8px;margin:18px 0 20px;padding:0;list-style:none;color:#d9e7e4;font-size:13px}.paywall-benefits li{position:relative;padding-left:20px;line-height:1.4}.paywall-benefits li:before{content:"✓";position:absolute;left:0;color:var(--amber);font-weight:800}.paywall-benefits strong{color:#fff}
 .paywall-card-premium .paywall-benefits{color:#685315}.paywall-card-premium .paywall-benefits strong{color:#4d3b0b}.paywall-card-premium .paywall-benefits li:before{color:#9a7415}
 @media(max-width:700px){.practice-filters{display:block;margin:-10px 0 22px}.practice-filters p{max-width:none;margin-top:8px}.topic-filter-row{width:100%}.topic-filter-row .btn{flex:none}}
+
+.has-premium-access{border-color:var(--teal);box-shadow:0 10px 28px rgba(14,130,117,.12)}
+.has-premium-access .premium-badge{color:var(--teal)}
+.history-item-button{width:100%;border:0;text-align:left;background:transparent;cursor:pointer}
+.history-item-button:hover{background:#f3f8f6}
+.history-text b,.history-text small{display:block}.history-text small{color:var(--muted);margin-top:3px}
+.progress-section-stat{display:grid;grid-template-columns:repeat(4,1fr);gap:8px 12px;align-items:center}
+.progress-section-stat .section-tag{grid-column:1/-1}.progress-section-stat strong{font-size:24px}.progress-section-stat span:not(.section-tag){font-size:11px;color:var(--muted)}
+.history-filters{display:flex;gap:6px;flex-wrap:wrap}.history-filters .is-active{background:var(--ink);color:#fff}
+.review-modal{position:fixed;inset:0;z-index:30;background:rgba(13,43,42,.78);display:grid;place-items:center;padding:20px;overflow:auto}
+.review-card{width:min(680px,100%);max-height:calc(100vh - 40px);overflow:auto;background:#fff;padding:28px}
+.review-card h2{margin:14px 0}.review-result{font-weight:800;color:var(--teal)}.review-answers{display:grid;gap:8px;margin:20px 0}.review-answer{display:flex;gap:12px;padding:12px;border:1px solid var(--line);border-radius:10px}.review-answer b{color:var(--teal)}
+@media(max-width:600px){.progress-section-stat{grid-template-columns:repeat(2,1fr)}.review-modal{padding:10px}.review-card{padding:20px}}
