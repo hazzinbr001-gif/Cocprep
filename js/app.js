@@ -140,9 +140,18 @@ window.addEventListener("hashchange", () => {
 function enterSignedInState(session) {
   topbar.hidden = false;
   userEmailEl.textContent = session.user.email || "";
-  document.getElementById("welcomeName").textContent = (session.user.email || "candidate").split("@")[0];
-  showScreen(sectionFromRoute() ? "practice" : "dashboard", sectionFromRoute() || "mcq");
-  refreshAdminAccess();
+  const welcomeName = document.getElementById("welcomeName");
+  if (welcomeName) welcomeName.textContent = (session.user.email || "candidate").split("@")[0];
+
+  // Do not make additional Supabase calls inside onAuthStateChange. Supabase
+  // is still completing signInWithPassword at that point, and nested auth
+  // calls can deadlock the sign-in promise. Start app initialization after
+  // the auth callback has returned.
+  setTimeout(() => {
+    const section = sectionFromRoute();
+    showScreen(section ? "practice" : "dashboard", section || "mcq");
+    refreshAdminAccess();
+  }, 0);
 }
 function enterSignedOutState() { topbar.hidden = true; showScreen("auth"); }
 supabaseClient.auth.onAuthStateChange((_event, session) => session ? enterSignedInState(session) : enterSignedOutState());
