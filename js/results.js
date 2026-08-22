@@ -57,6 +57,18 @@ async function loadResults() {
   try {
     allAttempts = await apiGetAttemptHistory();
     buildProgressCards();
+    const heading = document.querySelector(".history-panel .section-heading");
+    if (heading && !heading.querySelector(".history-filters")) {
+      const filters = document.createElement("div");
+      filters.className = "history-filters";
+      filters.innerHTML = '<button class="btn btn-secondary btn-sm is-active" data-history-filter="all">All</button><button class="btn btn-secondary btn-sm" data-history-filter="mcq">Section A</button><button class="btn btn-secondary btn-sm" data-history-filter="truefalse">Section B</button>';
+      heading.appendChild(filters);
+      filters.querySelectorAll("[data-history-filter]").forEach((button) => button.onclick = () => {
+        historyFilter = button.dataset.historyFilter;
+        filters.querySelectorAll("button").forEach((b) => b.classList.toggle("is-active", b === button));
+        renderHistory();
+      });
+    }
     renderHistory();
   } catch (e) {
     resultsEl.historyEmpty.hidden = false;
