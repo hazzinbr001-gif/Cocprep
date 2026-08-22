@@ -49,33 +49,7 @@ async function updatePremiumUI() {
   if (button) button.textContent = premiumAccess ? "Start True / False practice →" : "Unlock Section B →";
 }
 
-async function loadDashboard() {
-  try {
-    const [attempts, progress] = await Promise.all([apiGetAttemptHistory(), apiGetStudentProgress()]);
-    const bySection = (section) => attempts.filter((a) => (a.section || a.questions?.section) === section);
-    const a = bySection("mcq"), b = bySection("truefalse");
-    const accuracy = (list) => list.length ? Math.round(list.filter((x) => x.correct).length / list.length * 100) : null;
-    const all = [...a, ...b], overall = accuracy(all);
-    document.getElementById("overallAccuracy").textContent = overall === null ? "—" : `${overall}%`;
-    document.getElementById("overallProgressBar").style.width = `${overall || 0}%`;
-    document.getElementById("overviewAnswered").textContent = all.length;
-    document.getElementById("overviewSessions").textContent = all.length ? Math.ceil(all.length / 10) : 0;
-    document.getElementById("mcqAttempted").textContent = a.length;
-    document.getElementById("mcqAccuracy").textContent = accuracy(a) === null ? "—" : `${accuracy(a)}%`;
-    document.getElementById("mcqProgress").style.width = `${Math.min(100, a.length / 20 * 100)}%`;
-    document.getElementById("tfAttempted").textContent = b.length;
-    document.getElementById("tfAccuracy").textContent = accuracy(b) === null ? "—" : `${accuracy(b)}%`;
-    document.getElementById("tfProgress").style.width = `${Math.min(100, b.length / 20 * 100)}%`;
-    const streak = Number(progress?.current_streak ?? calculateStreak(all));
-    document.getElementById("streakValue").textContent = `${streak} ${streak === 1 ? "day" : "days"}`;
-    renderRecentAttempts(all);
-  } catch (_) {
-    document.getElementById("streakValue").textContent = "0 days";
-  }
-  updatePremiumUI();
-}
-
-function localDay(value) {
+async function loadDashboard() {\n  const [attemptResult, progressResult] = await Promise.allSettled([apiGetAttemptHistory(), apiGetStudentProgress()]);\n  const attempts = attemptResult.status === "fulfilled" ? attemptResult.value : [];\n  const progress = progressResult.status === "fulfilled" ? progressResult.value : null;\n  const bySection = (section) => attempts.filter((a) => (a.section || a.questions?.section) === section);\n  const aAttempts = bySection("mcq"), bAttempts = bySection("truefalse");\n  const aAnswered = Number(progress?.section_a_answered ?? aAttempts.length);\n  const aCorrect = Number(progress?.section_a_correct ?? aAttempts.filter((x) => x.correct).length);\n  const bAnswered = Number(progress?.section_b_answered ?? bAttempts.length);\n  const bCorrect = Number(progress?.section_b_correct ?? bAttempts.filter((x) => x.correct).length);\n  const allAnswered = aAnswered + bAnswered, allCorrect = aCorrect + bCorrect;\n  const accuracy = (answered, correct) => answered ? Math.round(correct / answered * 100) : null;\n  const overall = accuracy(allAnswered, allCorrect);\n  document.getElementById("overallAccuracy").textContent = overall === null ? "—" : overall + "%";\n  document.getElementById("overallProgressBar").style.width = (overall || 0) + "%";\n  document.getElementById("overviewAnswered").textContent = allAnswered;\n  document.getElementById("overviewSessions").textContent = allAnswered ? Math.ceil(allAnswered / 10) : 0;\n  document.getElementById("mcqAttempted").textContent = aAnswered;\n  document.getElementById("mcqAccuracy").textContent = accuracy(aAnswered, aCorrect) === null ? "—" : accuracy(aAnswered, aCorrect) + "%";\n  document.getElementById("mcqProgress").style.width = Math.min(100, aAnswered / 20 * 100) + "%";\n  document.getElementById("tfAttempted").textContent = bAnswered;\n  document.getElementById("tfAccuracy").textContent = accuracy(bAnswered, bCorrect) === null ? "—" : accuracy(bAnswered, bCorrect) + "%";\n  document.getElementById("tfProgress").style.width = Math.min(100, bAnswered / 20 * 100) + "%";\n  const streak = Number(progress?.current_streak ?? calculateStreak(attempts));\n  document.getElementById("streakValue").textContent = streak + " " + (streak === 1 ? "day" : "days");\n  renderRecentAttempts(attempts);\n  updatePremiumUI();\n}\nfunction localDay(value) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : new Intl.DateTimeFormat("en-CA", {
     year: "numeric", month: "2-digit", day: "2-digit"
